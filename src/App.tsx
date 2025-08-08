@@ -18,16 +18,15 @@ function App() {
   const [error, setError] = useState("");
   const PASSWORD = import.meta.env.VITE_APP_PASSWORD;
 
-const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
-  e.preventDefault();
-  if (inputPw === PASSWORD) {
-    setAuthorized(true);
-  } else {
-    setError("비밀번호가 틀렸습니다.");
-    setInputPw("");
-  }
-};
-
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    if (inputPw === PASSWORD) {
+      setAuthorized(true);
+    } else {
+      setError("비밀번호가 틀렸습니다.");
+      setInputPw("");
+    }
+  };
 
   if (!authorized) {
     return (
@@ -58,11 +57,7 @@ const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
           </div>
           <button type="submit">입력</button>
         </form>
-        {error && (
-          <p style={{ color: "red", marginTop: 8 }}>
-            {error}
-          </p>
-        )}
+        {error && <p style={{ color: "red", marginTop: 8 }}>{error}</p>}
       </div>
     );
   }
@@ -70,21 +65,34 @@ const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <nav
-          style={{
-            display: "flex",
-            gap: "16px",
-            padding: "12px",
-            borderBottom: "1px solid #ddd",
-          }}
-        >
-          <Link to="/">상품 등록</Link>
-          <Link to="/list">상품 리스트</Link>
-          <Link to="/stock">입출고</Link>
-          <Link to="/stock-history">입출고 전체 이력</Link>
-          <Link to="/low-stock">재고 부족 리스트</Link>
-          <Link to="/estimate">견적서 작성</Link>
-          <Link to="/estimate-list">견적서 리스트</Link>
+        <nav className="flex gap-4 my-5 mb-5 justify-center">
+          <Link to="/">
+            <button className="btn">상품 등록</button>
+          </Link>
+
+          <Link to="/list">
+            <button className="btn">상품 리스트</button>
+          </Link>
+
+          <Link to="/stock">
+            <button className="btn">입출고</button>
+          </Link>
+
+          <Link to="/stock-history">
+            <button className="btn">입출고 전체 이력</button>
+          </Link>
+
+          <Link to="/low-stock">
+            <button className="btn">재고 부족 리스트</button>
+          </Link>
+          {/* 
+          <Link to="/estimate">
+            <button className="btn">견적서 작성</button>
+          </Link>
+
+          <Link to="/estimate-list">
+            <button className="btn">견적서 리스트</button>
+          </Link> */}
         </nav>
 
         <Routes>

@@ -287,9 +287,12 @@ export default function ProductList() {
                 display: "flex",
                 alignItems: "center",
                 gap: "16px",
-                padding: "8px 0",
-                borderBottom: "1px solid #ddd",
+                padding: "10px 30px",
+                margin: "10px 0",
+                borderRadius: "10px",
+                // borderBottom: "1px solid #ddd",
                 paddingLeft: "30px",
+                backgroundColor: "#ffffff08",
               }}
             >
               <input

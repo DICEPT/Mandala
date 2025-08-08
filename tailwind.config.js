@@ -1,13 +1,11 @@
-// tailwind.config.js
-module.exports = {
-  content: ["./src/**/*.{js,ts,jsx,tsx}"],
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {},
   },
   plugins: [],
-  variants: {
-    extend: {
-      display: ["print"], // ✅ print 속성 확장
-    },
-  },
-};
+}
