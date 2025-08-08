@@ -18,15 +18,16 @@ function App() {
   const [error, setError] = useState("");
   const PASSWORD = import.meta.env.VITE_APP_PASSWORD;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (inputPw === PASSWORD) {
-      setAuthorized(true);
-    } else {
-      setError("비밀번호가 틀렸습니다.");
-      setInputPw("");
-    }
-  };
+const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
+  e.preventDefault();
+  if (inputPw === PASSWORD) {
+    setAuthorized(true);
+  } else {
+    setError("비밀번호가 틀렸습니다.");
+    setInputPw("");
+  }
+};
+
 
   if (!authorized) {
     return (

@@ -16,6 +16,7 @@ export interface StockRecord {
 }
 
 export interface Product {
+  상품_카테고리2: string;
   상품번호: string;
   번호: number;
   상품명?: string;
@@ -43,7 +44,7 @@ export interface Product {
   QR코드?: string;
   사이즈?: string;
   바코드?: string;
-  createdAt?: any;
+  createdAt?: number;
 
   // 🔽 추가 필드
   조계사_납품명?: string;
