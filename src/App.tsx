@@ -1,77 +1,102 @@
-import { useState } from 'react';
-import QRScanner from './components/QRScanner';
+import { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-interface Product {
-  code: string;
-  name: string;
-  stock: number;
-}
+import RegisterPage from "./pages/RegisterPage";
+import ListPage from "./pages/ListPage";
+import StockPage from "./pages/StockPage";
+import LowStockPage from "./pages/LowStockPage";
+import StockHistoryPage from "./pages/StockHistoryPage";
+import EstimatePage from "./pages/EstimatePage";
+import EstimateListPage from "./pages/EstimateListPage";
+
+const queryClient = new QueryClient();
 
 function App() {
-  const [scannedCode, setScannedCode] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [newProductName, setNewProductName] = useState('');
-  const [newProductStock, setNewProductStock] = useState(1);
+  const [authorized, setAuthorized] = useState(false);
+  const [inputPw, setInputPw] = useState("");
+  const [error, setError] = useState("");
+  const PASSWORD = import.meta.env.VITE_APP_PASSWORD;
 
-  const handleScan = (code: string) => {
-    setScannedCode(code);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (inputPw === PASSWORD) {
+      setAuthorized(true);
+    } else {
+      setError("비밀번호가 틀렸습니다.");
+      setInputPw("");
+    }
   };
 
-  const handleRegister = () => {
-    if (!scannedCode || !newProductName) return alert('모든 값을 입력해주세요.');
-    const newProduct: Product = {
-      code: scannedCode,
-      name: newProductName,
-      stock: newProductStock,
-    };
-    setProducts((prev) => [...prev, newProduct]);
-    setScannedCode('');
-    setNewProductName('');
-    setNewProductStock(1);
-  };
+  if (!authorized) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#f9f9f9",
+        }}
+      >
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 8 }}>
+            <label>
+              비밀번호:{" "}
+              <input
+                type="password"
+                value={inputPw}
+                onChange={(e) => {
+                  setInputPw(e.target.value);
+                  setError("");
+                }}
+                autoFocus
+              />
+            </label>
+          </div>
+          <button type="submit">입력</button>
+        </form>
+        {error && (
+          <p style={{ color: "red", marginTop: 8 }}>
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">QR 재고 관리 시스템</h1>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <nav
+          style={{
+            display: "flex",
+            gap: "16px",
+            padding: "12px",
+            borderBottom: "1px solid #ddd",
+          }}
+        >
+          <Link to="/">상품 등록</Link>
+          <Link to="/list">상품 리스트</Link>
+          <Link to="/stock">입출고</Link>
+          <Link to="/stock-history">입출고 전체 이력</Link>
+          <Link to="/low-stock">재고 부족 리스트</Link>
+          <Link to="/estimate">견적서 작성</Link>
+          <Link to="/estimate-list">견적서 리스트</Link>
+        </nav>
 
-      <div className="border p-4 rounded">
-        <h2 className="font-semibold mb-2">📷 QR 바코드 스캔</h2>
-        <QRScanner onScan={handleScan} />
-        <p className="mt-2">스캔된 코드: {scannedCode}</p>
-      </div>
-
-      <div className="border p-4 rounded">
-        <h2 className="font-semibold mb-2">📝 상품 등록</h2>
-        <input
-          type="text"
-          placeholder="상품명"
-          value={newProductName}
-          onChange={(e) => setNewProductName(e.target.value)}
-          className="border px-2 py-1 mr-2"
-        />
-        <input
-          type="number"
-          min={1}
-          value={newProductStock}
-          onChange={(e) => setNewProductStock(Number(e.target.value))}
-          className="border px-2 py-1 mr-2 w-20"
-        />
-        <button onClick={handleRegister} className="bg-blue-500 text-white px-4 py-1 rounded">
-          등록
-        </button>
-      </div>
-
-      <div className="border p-4 rounded">
-        <h2 className="font-semibold mb-2">📦 등록된 상품</h2>
-        <ul className="space-y-1">
-          {products.map((item, idx) => (
-            <li key={idx} className="border p-2 rounded">
-              <strong>{item.name}</strong> (코드: {item.code}, 수량: {item.stock})
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+        <Routes>
+          <Route path="/" element={<RegisterPage />} />
+          <Route path="/list" element={<ListPage />} />
+          <Route path="/stock" element={<StockPage />} />
+          <Route path="/stock-history" element={<StockHistoryPage />} />
+          <Route path="/low-stock" element={<LowStockPage />} />
+          <Route path="/estimate" element={<EstimatePage />} />
+          <Route path="/estimate-list" element={<EstimateListPage />} />
+        </Routes>
+      </Router>
+    </QueryClientProvider>
   );
 }
 
