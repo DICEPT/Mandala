@@ -36,8 +36,6 @@ export default function ProductList() {
   const [allCategory1, setAllCategory1] = useState<string[]>([]);
   const [allCategory2, setAllCategory2] = useState<string[]>([]);
 
-  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
-
   const itemsPerPage = 700;
 
   useEffect(() => {

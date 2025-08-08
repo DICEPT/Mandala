@@ -154,6 +154,7 @@ export default function ProductForm() {
         최초_납품_상품명1: product.최초_납품_상품명1,
         최초_납품_상품명2: product.최초_납품_상품명2,
         createdAt: serverTimestamp(),
+        상품_카테고리2: ""
       };
 
       await addDoc(collection(db, "products"), newProduct);
@@ -272,8 +273,7 @@ export default function ProductForm() {
           const newProduct: Product = {
             번호: newNumber,
             사진이력: [],
-            상품번호:
-              row["상품번호"] ?? `BS${String(newNumber).padStart(4, "0")}`,
+            상품번호: row["상품번호"] ?? `BS${String(newNumber).padStart(4, "0")}`,
             상품명: row["상품명"],
             카테고리1: row["카테고리1"] ?? "",
             카테고리2: row["카테고리2"] ?? "",
@@ -283,17 +283,17 @@ export default function ProductForm() {
             브랜드: row["브랜드"] ?? "",
             계절행사: row["계절행사"] ?? "",
             원가이력: row["원가"]
-            ? [{ 날짜: today, 금액: Number(row["원가"]) }]
-            : [],
+              ? [{ 날짜: today, 금액: Number(row["원가"]) }]
+              : [],
             단가이력: row["단가"]
-            ? [{ 날짜: today, 금액: Number(row["단가"]) }]
-            : [],
+              ? [{ 날짜: today, 금액: Number(row["단가"]) }]
+              : [],
             판매가이력: row["판매가"]
-            ? [{ 날짜: today, 금액: Number(row["판매가"]) }]
-            : [],
+              ? [{ 날짜: today, 금액: Number(row["판매가"]) }]
+              : [],
             입고기록: row["입고수량"]
-            ? [{ 날짜: today, 수량: Number(row["입고수량"]) }]
-            : [],
+              ? [{ 날짜: today, 수량: Number(row["입고수량"]) }]
+              : [],
             삭제이력_단가: [],
             삭제이력_입고: [],
             출고기록: [],
@@ -305,6 +305,7 @@ export default function ProductForm() {
             최초_납품_상품명2: row["세로"] ?? "",
             메모: row["메모"] ?? "",
             createdAt: serverTimestamp(),
+            상품_카테고리2: ""
           };
 
           try {

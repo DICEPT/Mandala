@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase/firestore";
+import { FieldValue } from "firebase/firestore";
 
 export interface PriceHistory {
   날짜: string;
@@ -44,7 +45,7 @@ export interface Product {
   QR코드?: string;
   사이즈?: string;
   바코드?: string;
-  createdAt?: number;
+  createdAt?: FieldValue;
 
   // 🔽 추가 필드
   조계사_납품명?: string;
