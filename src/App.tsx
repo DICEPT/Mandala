@@ -37,7 +37,6 @@ function App() {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          background: "#f9f9f9",
         }}
       >
         <form onSubmit={handleSubmit}>
