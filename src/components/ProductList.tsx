@@ -340,7 +340,7 @@ export default function ProductList() {
                       style={{
                         width: "100px",
                         height: "100px",
-                        background: "#f9f9f9",
+                        background: "#ffffff10",
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
