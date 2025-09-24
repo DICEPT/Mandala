@@ -154,7 +154,7 @@ export default function ProductForm() {
         최초_납품_상품명1: product.최초_납품_상품명1,
         최초_납품_상품명2: product.최초_납품_상품명2,
         createdAt: serverTimestamp(),
-        상품_카테고리2: ""
+        상품_카테고리2: "",
       };
 
       await addDoc(collection(db, "products"), newProduct);
@@ -273,7 +273,8 @@ export default function ProductForm() {
           const newProduct: Product = {
             번호: newNumber,
             사진이력: [],
-            상품번호: row["상품번호"] ?? `BS${String(newNumber).padStart(4, "0")}`,
+            상품번호:
+              row["상품번호"] ?? `BS${String(newNumber).padStart(4, "0")}`,
             상품명: row["상품명"],
             카테고리1: row["카테고리1"] ?? "",
             카테고리2: row["카테고리2"] ?? "",
@@ -305,7 +306,7 @@ export default function ProductForm() {
             최초_납품_상품명2: row["세로"] ?? "",
             메모: row["메모"] ?? "",
             createdAt: serverTimestamp(),
-            상품_카테고리2: ""
+            상품_카테고리2: "",
           };
 
           try {
@@ -321,6 +322,50 @@ export default function ProductForm() {
         alert("엑셀 데이터 등록 완료!");
       },
     });
+  };
+
+  // ⬇️ ProductForm 컴포넌트 내부 최상단 어딘가에 추가
+  const CSV_HEADERS = [
+    "상품번호",
+    "상품명",
+    "카테고리1",
+    "카테고리2",
+    "바코드",
+    "원가",
+    "단가",
+    "판매가",
+    "입고수량",
+    "최초_납품_상품명1",
+    "최초_납품_상품명2",
+    "원자재",
+    "알수량",
+    "알사이즈",
+    "메모",
+    "브랜드",
+    "계절행사",
+    "가로",
+    "세로",
+  ];
+
+  const handleDownloadCsvTemplate = () => {
+    // 헤더 + 샘플 1행(비워둠) — 필요하면 예시값을 넣어도 됩니다.
+    const csv = Papa.unparse({
+      fields: CSV_HEADERS,
+      data: [Array(CSV_HEADERS.length).fill("")],
+    });
+
+    // Excel 한글 호환을 위한 BOM 추가
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "product_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -349,8 +394,14 @@ export default function ProductForm() {
           </div>
         </div>
       )}
-
-      <div style={{ marginBottom: "20px" }}>
+      <div
+        style={{
+          marginBottom: "20px",
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
         <label>
           CSV 업로드 (상품 대량 등록):
           <input
@@ -360,7 +411,12 @@ export default function ProductForm() {
             style={{ marginLeft: "8px" }}
           />
         </label>
+
+        <button type="button" onClick={handleDownloadCsvTemplate}>
+          CSV 양식 내려받기
+        </button>
       </div>
+
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: "10px" }}

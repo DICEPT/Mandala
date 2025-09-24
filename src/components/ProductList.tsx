@@ -5,6 +5,7 @@ import {
   setDoc,
   deleteDoc,
   doc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { Product } from "../types/Product";
@@ -18,8 +19,9 @@ interface ProductWithId extends Product {
   id: string;
 }
 
-type SortKey = "번호" | "상품번호" | "상품명";
+type SortKey = "번호" | "상품번호" | "상품명" | "브랜드";
 type SortOrder = "asc" | "desc";
+type BulkField = "원가" | "단가" | "판매가";
 
 export default function ProductList() {
   const [products, setProducts] = useState<ProductWithId[]>([]);
@@ -29,10 +31,15 @@ export default function ProductList() {
   const [selectedProduct, setSelectedProduct] = useState<ProductWithId | null>(
     null
   );
+  const [bulkField, setBulkField] = useState<BulkField>("판매가");
+  const [bulkValue, setBulkValue] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(0);
+  const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedCategory1, setSelectedCategory1] = useState<string>("");
   const [selectedCategory2, setSelectedCategory2] = useState<string>("");
+  const [allBrand, setAllBrand] = useState<string[]>([]);
   const [allCategory1, setAllCategory1] = useState<string[]>([]);
   const [allCategory2, setAllCategory2] = useState<string[]>([]);
 
@@ -41,6 +48,98 @@ export default function ProductList() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  // ✅ CSV 유틸: 엑셀 호환(BOM 포함) + 셀 이스케이프
+  const csvEscape = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const getLatest = (arr?: { 금액?: number; 날짜?: string }[]) =>
+    Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : undefined;
+
+  const toKSTStamp = () => {
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const y = kst.getUTCFullYear();
+    const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(kst.getUTCDate()).padStart(2, "0");
+    const hh = String(kst.getUTCHours()).padStart(2, "0");
+    const mm = String(kst.getUTCMinutes()).padStart(2, "0");
+    const ss = String(kst.getUTCSeconds()).padStart(2, "0");
+    return `${y}${m}${d}_${hh}${mm}${ss}`;
+  };
+
+  const buildCsv = (list: ProductWithId[]) => {
+    const header = [
+      "순번(3자리)",
+      "상품번호",
+      "상품명",
+      "카테고리1",
+      "카테고리2",
+      "브랜드",
+      "원가(최신)",
+      "단가(최신)",
+      "판매가(최신)",
+      "재고",
+      "최근입고수량",
+      "최근입고일",
+      "최근출고수량",
+      "최근출고일",
+      "이미지경로",
+    ];
+
+    const rows = list.map((p) => {
+      const stockIn = p.입고기록 ?? [];
+      const stockOut = p.출고기록 ?? [];
+      const lastIn = stockIn.at(-1);
+      const lastOut = stockOut.at(-1);
+      const latestCost = getLatest(p.원가이력)?.금액 ?? "";
+      const latestUnit = getLatest(p.단가이력)?.금액 ?? "";
+      const latestPrice = getLatest(p.판매가이력)?.금액 ?? "";
+      // 재고 계산 (이미 getStockCount 있음)
+      const stock = typeof getStockCount === "function" ? getStockCount(p) : "";
+
+      const imagePath = p.사진이력?.at(-1)?.경로 ?? "";
+
+      return [
+        String(p.번호 ?? "").padStart(3, "0"),
+        p.상품번호 ?? "",
+        p.상품명 ?? "",
+        p.카테고리1 ?? "",
+        p.카테고리2 ?? "",
+        p.브랜드 ?? "",
+        latestCost,
+        latestUnit,
+        latestPrice,
+        stock,
+        lastIn?.수량 ?? "",
+        lastIn?.날짜 ?? "",
+        lastOut?.수량 ?? "",
+        lastOut?.날짜 ?? "",
+        imagePath,
+      ]
+        .map(csvEscape)
+        .join(",");
+    });
+
+    return [header.map(csvEscape).join(","), ...rows].join("\n");
+  };
+
+  const downloadCsv = (list: ProductWithId[], suffix: string) => {
+    const csv = buildCsv(list);
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    }); // BOM 포함
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `products_${suffix}_${toKSTStamp()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const fetchProducts = async () => {
     const snapshot = await getDocs(collection(db, "products"));
@@ -64,7 +163,15 @@ export default function ProductList() {
           .filter((x): x is string => typeof x === "string")
       )
     );
+    const brands = Array.from(
+      new Set(
+        productList
+          .map((p) => p.브랜드)
+          .filter((x): x is string => typeof x === "string")
+      )
+    );
 
+    setAllBrand(brands);
     setAllCategory1(categories1);
     setAllCategory2(categories2);
   };
@@ -103,6 +210,14 @@ export default function ProductList() {
       console.error("삭제 오류:", error);
       alert("상품 삭제 중 오류가 발생했습니다.");
     }
+  };
+
+  const getTotalOut = (product: ProductWithId): number => {
+    return product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
+  };
+
+  const getTotalIn = (product: ProductWithId): number => {
+    return product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
   };
 
   const handleBulkDelete = async () => {
@@ -153,33 +268,115 @@ export default function ProductList() {
   };
 
   const filtered = products.filter((p) => {
+    // 🔹 문자열 정규화 (소문자 + trim)
+    const norm = (v?: string) =>
+      typeof v === "string" ? v.trim().toLowerCase() : "";
+
+    const kw = norm(keyword);
+
+    // 🔹 키워드 검색 범위: 상품명, 상품번호, 브랜드
     const matchKeyword =
-      p.상품명?.includes(keyword) || p.상품번호?.includes(keyword);
+      norm(p.상품명).includes(kw) ||
+      norm(p.상품번호).includes(kw) ||
+      norm(p.브랜드).includes(kw);
+
     const matchCategory1 =
       !selectedCategory1 || p.카테고리1 === selectedCategory1;
     const matchCategory2 =
       !selectedCategory2 || p.카테고리2 === selectedCategory2;
-    return matchKeyword && matchCategory1 && matchCategory2;
+    const matchBrand = !selectedBrand || p.브랜드 === selectedBrand;
+
+    return matchKeyword && matchCategory1 && matchCategory2 && matchBrand;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    const aValue = a[sortKey] ?? "";
-    const bValue = b[sortKey] ?? "";
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortOrder === "asc"
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    } else if (!isNaN(Number(aValue)) && !isNaN(Number(bValue))) {
-      return sortOrder === "asc"
-        ? Number(aValue) - Number(bValue)
-        : Number(bValue) - Number(aValue);
+  const getSortValue = (p: ProductWithId, key: SortKey) => {
+    switch (key) {
+      case "번호":
+        return Number(p.번호) || 0; // 🔹 숫자 변환해서 정렬
+      case "상품번호":
+        return p.상품번호 ?? "";
+      case "상품명":
+        return p.상품명 ?? "";
+      case "브랜드":
+        return p.브랜드 ?? "";
+      default:
+        return "";
     }
-    return 0;
+  };
+
+  const sorted = [...filtered].sort((a, b) => {
+    const aValue = getSortValue(a, sortKey);
+    const bValue = getSortValue(b, sortKey);
+
+    const aNum = Number(aValue);
+    const bNum = Number(bValue);
+    const bothNumeric = !Number.isNaN(aNum) && !Number.isNaN(bNum);
+
+    if (bothNumeric) {
+      return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
+    }
+    const aStr = String(aValue);
+    const bStr = String(bValue);
+    return sortOrder === "asc"
+      ? aStr.localeCompare(bStr)
+      : bStr.localeCompare(aStr);
   });
 
   const pageCount = Math.ceil(sorted.length / itemsPerPage);
   const offset = currentPage * itemsPerPage;
   const paginatedProducts = sorted.slice(offset, offset + itemsPerPage);
+
+  const handleBulkPriceUpdate = async () => {
+    if (selectedIds.length === 0) {
+      alert("수정할 상품을 선택하세요.");
+      return;
+    }
+    if (bulkValue.trim() === "" || Number.isNaN(Number(bulkValue))) {
+      alert("수정값을 숫자로 입력하세요.");
+      return;
+    }
+
+    const value = Number(bulkValue);
+    const ts = getKSTTimestamp();
+
+    const historyKey =
+      bulkField === "원가"
+        ? "원가이력"
+        : bulkField === "단가"
+        ? "단가이력"
+        : "판매가이력";
+
+    setIsUpdating(true);
+    try {
+      const selectedProducts = products.filter((p) =>
+        selectedIds.includes(p.id)
+      );
+
+      await Promise.all(
+        selectedProducts.map(async (p) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const prevHistory = (p as any)[historyKey] ?? [];
+          const newHistory = [...prevHistory, { 금액: value, 날짜: ts }];
+
+          // 🔸 문서 전체를 덮어쓰지 않고 해당 필드만 갱신
+          await updateDoc(doc(db, "products", p.id), {
+            [historyKey]: newHistory,
+          });
+        })
+      );
+
+      alert(
+        `${selectedProducts.length}개 상품의 ${bulkField}를 업데이트했습니다.`
+      );
+      setBulkValue("");
+      fetchProducts();
+    } catch (err) {
+      console.error("일괄 수정 오류:", err);
+      alert("일괄 수정 중 오류가 발생했습니다.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div>
@@ -203,6 +400,24 @@ export default function ProductList() {
           <option value="번호">순번</option>
           <option value="상품명">상품명</option>
           <option value="상품번호">상품번호</option>
+          <option value="브랜드">브랜드</option>
+        </select>
+        <select
+          value={selectedBrand}
+          onChange={(e) => {
+            setSelectedBrand(e.target.value);
+            setCurrentPage(0);
+          }}
+        >
+          <option value="">브랜드 선택</option>
+          {allBrand
+            .slice()
+            .sort((a, b) => a.localeCompare(b))
+            .map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
         </select>
         <select
           value={selectedCategory1}
@@ -273,12 +488,59 @@ export default function ProductList() {
         <button onClick={handleBulkDelete} disabled={selectedIds.length === 0}>
           선택 삭제 ({selectedIds.length})
         </button>
+        {/* 일괄 가격 수정 UI */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select
+            value={bulkField}
+            onChange={(e) => setBulkField(e.target.value as BulkField)}
+            title="수정할 항목"
+          >
+            <option value="원가">원가</option>
+            <option value="단가">단가</option>
+            <option value="판매가">판매가</option>
+          </select>
+
+          <input
+            type="number"
+            placeholder="수정 금액(원)"
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            style={{ width: 140 }}
+          />
+
+          <button
+            onClick={handleBulkPriceUpdate}
+            disabled={
+              isUpdating ||
+              selectedIds.length === 0 ||
+              bulkValue.trim() === "" ||
+              Number.isNaN(Number(bulkValue))
+            }
+          >
+            {isUpdating ? "수정 중..." : "수정"}
+          </button>
+        </div>
+        <button
+          onClick={() => downloadCsv(sorted, "filtered_all")}
+          title="필터+정렬된 전체 결과를 CSV로 저장"
+        >
+          CSV 내보내기
+        </button>
+
+        {/* <button
+          onClick={() => downloadCsv(paginatedProducts, "current_page")}
+          title="현재 페이지 항목만 CSV로 저장"
+        >
+          CSV 내보내기(현재 페이지)
+        </button> */}
       </div>
 
       <ul>
         {paginatedProducts.map((p) => {
           const currentStock = getStockCount(p);
           const imagePath = p.사진이력?.at(-1)?.경로;
+          const totalOut = getTotalOut(p);
+          const totalIn = getTotalIn(p);
 
           return (
             <li
@@ -320,8 +582,9 @@ export default function ProductList() {
                     justifyContent: "center",
                   }}
                 >
-                  {p.번호}
+                  {String(p.번호).padStart(3, "0")}
                 </div>
+
                 <div
                   style={{
                     width: "100px",
@@ -352,36 +615,42 @@ export default function ProductList() {
                     </div>
                   )}
                 </div>
-                <strong>
-                  상품명:
-                  {[p.상품번호, p.상품명, p.카테고리2, p.알사이즈]
-                    .filter(Boolean)
-                    .join("_")}{" "}
-                  &nbsp;
-                </strong>
-                <div>
-                  {/* /상품번호: {p.상품번호} */}
-                  {/* /상품명: {p.상품명} */} / {p.카테고리1} / {p.카테고리2}
-                  {/* /원가: {p.원가이력?.[p.원가이력.length - 1]?.금액}원 */} /
-                  단가:{p.단가이력?.[p.단가이력.length - 1]?.금액}원 / 판매가:
-                  {p.판매가이력?.[p.판매가이력.length - 1]?.금액}원
-                  {/* / 최근 입고: {p.입고기록?.[p.입고기록.length - 1]?.수량 ?? 0}개{" "}{p.입고기록?.[p.입고기록.length - 1]?.날짜 ?? "-"}
-                  / 최근 출고: {p.출고기록?.[p.출고기록.length - 1]?.수량 ?? 0}개{" "}{p.출고기록?.[p.출고기록.length - 1]?.날짜 ?? "-"}  */}{" "}
-                  /{" "}
-                  <strong
-                    style={{
-                      color:
-                        currentStock <= 20
-                          ? "red"
-                          : currentStock <= 50
-                          ? "orange"
-                          : currentStock <= 100
-                          ? "green"
-                          : "white",
-                    }}
-                  >
-                    재고: {currentStock}개
+                {/* 🔽 텍스트 영역: 세로 정렬로 묶기 */}
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                  <strong style={{ display: "block" }}>
+                    상품명:{" "}
+                    {[p.상품번호, p.상품명, p.카테고리2, p.알사이즈]
+                      .filter(Boolean)
+                      .join("_")}
                   </strong>
+
+                  <div>
+                    {p.카테고리1} / {p.카테고리2} / {p.브랜드}
+                    <br />
+                    원가: {p.원가이력?.[p.원가이력.length - 1]?.금액}원 / 단가:{" "}
+                    {p.단가이력?.[p.단가이력.length - 1]?.금액}원 / 판매가:{" "}
+                    {p.판매가이력?.[p.판매가이력.length - 1]?.금액}원
+                    <br />
+                    <strong>누적 입고:</strong> {totalIn}개 /{" "}
+                    <strong>누적 출고:</strong> {totalOut}개
+                    <br />
+                    <strong
+                      style={{
+                        color:
+                          currentStock <= 20
+                            ? "red"
+                            : currentStock <= 50
+                            ? "orange"
+                            : currentStock <= 100
+                            ? "green"
+                            : "white",
+                      }}
+                    >
+                      재고: {currentStock}개
+                    </strong>
+                  </div>
                 </div>
               </div>
 
