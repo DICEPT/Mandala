@@ -635,6 +635,8 @@ export default function ProductList() {
                     <br />
                     <strong>누적 입고:</strong> {totalIn}개 /{" "}
                     <strong>누적 출고:</strong> {totalOut}개
+                    {p.알수량 ? <strong> / 알 수량:</strong> : ""}
+                    {p.알수량 ? `${p.알수량}개` : ""}
                     <br />
                     <strong
                       style={{
