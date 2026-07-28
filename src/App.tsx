@@ -30,33 +30,35 @@ function App() {
 
   if (!authorized) {
     return (
-      <div
-        style={{
-          height: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 8 }}>
-            <label>
-              비밀번호:{" "}
-              <input
-                type="password"
-                value={inputPw}
-                onChange={(e) => {
-                  setInputPw(e.target.value);
-                  setError("");
-                }}
-                autoFocus
-              />
-            </label>
-          </div>
-          <button type="submit">입력</button>
+      <div className="flex flex-col items-center justify-center h-screen bg-[#000] text-white font-sans">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-[#1a1a1a] p-8 rounded-lg border border-[#333] flex flex-col items-center w-[320px]"
+        >
+          <h2 className="text-xl font-bold mb-5 text-[#e4e4e7]">
+            🔒 보관함 접근 제한
+          </h2>
+          <input
+            type="password"
+            placeholder="비밀번호 입력"
+            value={inputPw}
+            onChange={(e) => {
+              setInputPw(e.target.value);
+              setError("");
+            }}
+            className="w-full py-2.5 px-3 mb-4 rounded-md border border-[#444] bg-[#222] text-white text-center focus:outline-none focus:border-[#646cff]"
+            autoFocus
+          />
+          <button
+            type="submit"
+            className="w-full py-2.5 px-4 rounded-md bg-[#646cff] text-white font-bold hover:bg-[#535bf2] transition-colors"
+          >
+            확인
+          </button>
+          {error && (
+            <p className="text-red-500 text-sm mt-3 text-center">{error}</p>
+          )}
         </form>
-        {error && <p style={{ color: "red", marginTop: 8 }}>{error}</p>}
       </div>
     );
   }

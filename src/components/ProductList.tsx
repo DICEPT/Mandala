@@ -21,7 +21,7 @@ interface ProductWithId extends Product {
 
 type SortKey = "번호" | "상품번호" | "상품명" | "브랜드";
 type SortOrder = "asc" | "desc";
-type BulkField = "원가" | "단가" | "판매가";
+type BulkField = "원가" | "단가" | "판매가" | "입고" | "출고" | "브랜드";
 
 export default function ProductList() {
   const [products, setProducts] = useState<ProductWithId[]>([]);
@@ -327,22 +327,24 @@ export default function ProductList() {
       alert("수정할 상품을 선택하세요.");
       return;
     }
-    if (bulkValue.trim() === "" || Number.isNaN(Number(bulkValue))) {
-      alert("수정값을 숫자로 입력하세요.");
+
+    if (bulkValue.trim() === "") {
+      alert("수정할 값을 입력하세요.");
       return;
     }
 
-    const value = Number(bulkValue);
+    // 숫자 검증이 필요한 항목 체크
+    if (
+      ["원가", "단가", "판매가", "입고", "출고"].includes(bulkField) &&
+      Number.isNaN(Number(bulkValue))
+    ) {
+      alert("수량 또는 금액은 숫자로 입력하세요.");
+      return;
+    }
+
     const ts = getKSTTimestamp();
-
-    const historyKey =
-      bulkField === "원가"
-        ? "원가이력"
-        : bulkField === "단가"
-        ? "단가이력"
-        : "판매가이력";
-
     setIsUpdating(true);
+
     try {
       const selectedProducts = products.filter((p) =>
         selectedIds.includes(p.id)
@@ -350,13 +352,42 @@ export default function ProductList() {
 
       await Promise.all(
         selectedProducts.map(async (p) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const prevHistory = (p as any)[historyKey] ?? [];
-          const newHistory = [...prevHistory, { 금액: value, 날짜: ts }];
+          /* eslint-disable @typescript-eslint/no-explicit-any */
+          if (bulkField === "브랜드") {
+            await updateDoc(doc(db, "products", p.id), {
+              브랜드: bulkValue.trim(),
+            });
+          } else if (bulkField === "입고" || bulkField === "출고") {
+            const historyKey = bulkField === "입고" ? "입고기록" : "출고기록";
+            const prevHistory = (p as any)[historyKey] ?? [];
+            const newHistory = [
+              ...prevHistory,
+              { 수량: Number(bulkValue), 날짜: ts },
+            ];
 
-          await updateDoc(doc(db, "products", p.id), {
-            [historyKey]: newHistory,
-          });
+            await updateDoc(doc(db, "products", p.id), {
+              [historyKey]: newHistory,
+            });
+          } else {
+            // 가격 관련 (원가, 단가, 판매가)
+            const historyKey =
+              bulkField === "원가"
+                ? "원가이력"
+                : bulkField === "단가"
+                ? "단가이력"
+                : "판매가이력";
+
+            const prevHistory = (p as any)[historyKey] ?? [];
+            const newHistory = [
+              ...prevHistory,
+              { 금액: Number(bulkValue), 날짜: ts },
+            ];
+
+            await updateDoc(doc(db, "products", p.id), {
+              [historyKey]: newHistory,
+            });
+          }
+          /* eslint-enable @typescript-eslint/no-explicit-any */
         })
       );
 
@@ -487,7 +518,7 @@ export default function ProductList() {
           </select>
         </div>
 
-        {/* 하단 선택 액션 및 가격 일괄 수정 영역 */}
+        {/* 하단 선택 액션 및 가격/수량/브랜드 일괄 수정 영역 */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer select-none">
@@ -528,21 +559,33 @@ export default function ProductList() {
           <div className="flex items-center gap-2">
             <select
               value={bulkField}
-              onChange={(e) => setBulkField(e.target.value as BulkField)}
+              onChange={(e) => {
+                setBulkField(e.target.value as BulkField);
+                setBulkValue(""); // 필드 변경 시 기존 입력값 초기화
+              }}
               title="수정할 항목"
               className={inputStyle}
             >
               <option value="원가">원가</option>
               <option value="단가">단가</option>
               <option value="판매가">판매가</option>
+              <option value="입고">입고(수량 추가)</option>
+              <option value="출고">출고(수량 추가)</option>
+              <option value="브랜드">브랜드</option>
             </select>
 
             <input
-              type="number"
-              placeholder="수정 금액(원)"
+              type={bulkField === "브랜드" ? "text" : "number"}
+              placeholder={
+                bulkField === "브랜드"
+                  ? "브랜드명 입력"
+                  : bulkField === "입고" || bulkField === "출고"
+                  ? "수량 입력"
+                  : "수정 금액(원)"
+              }
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
-              className={`${inputStyle} w-32`}
+              className={`${inputStyle} w-36`}
             />
 
             <button
@@ -550,8 +593,7 @@ export default function ProductList() {
               disabled={
                 isUpdating ||
                 selectedIds.length === 0 ||
-                bulkValue.trim() === "" ||
-                Number.isNaN(Number(bulkValue))
+                bulkValue.trim() === ""
               }
               className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
