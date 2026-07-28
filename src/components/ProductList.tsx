@@ -27,7 +27,7 @@ export default function ProductList() {
   const [products, setProducts] = useState<ProductWithId[]>([]);
   const [keyword, setKeyword] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("번호");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [selectedProduct, setSelectedProduct] = useState<ProductWithId | null>(
     null
   );
@@ -36,14 +36,13 @@ export default function ProductList() {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(50); // 🔹 기본값 50개 설정
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedCategory1, setSelectedCategory1] = useState<string>("");
   const [selectedCategory2, setSelectedCategory2] = useState<string>("");
   const [allBrand, setAllBrand] = useState<string[]>([]);
   const [allCategory1, setAllCategory1] = useState<string[]>([]);
   const [allCategory2, setAllCategory2] = useState<string[]>([]);
-
-  const itemsPerPage = 700;
 
   useEffect(() => {
     fetchProducts();
@@ -68,6 +67,14 @@ export default function ProductList() {
     const mm = String(kst.getUTCMinutes()).padStart(2, "0");
     const ss = String(kst.getUTCSeconds()).padStart(2, "0");
     return `${y}${m}${d}_${hh}${mm}${ss}`;
+  };
+
+  const getStockCount = (product: ProductWithId): number => {
+    const totalIn =
+      product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
+    const totalOut =
+      product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
+    return totalIn - totalOut;
   };
 
   const buildCsv = (list: ProductWithId[]) => {
@@ -97,8 +104,7 @@ export default function ProductList() {
       const latestCost = getLatest(p.원가이력)?.금액 ?? "";
       const latestUnit = getLatest(p.단가이력)?.금액 ?? "";
       const latestPrice = getLatest(p.판매가이력)?.금액 ?? "";
-      // 재고 계산 (이미 getStockCount 있음)
-      const stock = typeof getStockCount === "function" ? getStockCount(p) : "";
+      const stock = getStockCount(p);
 
       const imagePath = p.사진이력?.at(-1)?.경로 ?? "";
 
@@ -130,7 +136,7 @@ export default function ProductList() {
     const csv = buildCsv(list);
     const blob = new Blob(["\uFEFF" + csv], {
       type: "text/csv;charset=utf-8;",
-    }); // BOM 포함
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -183,8 +189,8 @@ export default function ProductList() {
 
   const getKSTTimestamp = (): string => {
     const now = new Date();
-    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000); // UTC + 9시간
-    return kst.toISOString().replace("T", " ").substring(0, 19); // "YYYY-MM-DD HH:mm:ss"
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    return kst.toISOString().replace("T", " ").substring(0, 19);
   };
 
   const handleDelete = async (id: string) => {
@@ -195,7 +201,7 @@ export default function ProductList() {
     if (!confirmDelete) return;
 
     try {
-      const deletedAt = getKSTTimestamp(); // ✅ 한국 시간
+      const deletedAt = getKSTTimestamp();
 
       await setDoc(doc(db, "deleteList", id), {
         ...productToDelete,
@@ -233,7 +239,7 @@ export default function ProductList() {
 
     try {
       const toDelete = products.filter((p) => selectedIds.includes(p.id));
-      const deletedAt = getKSTTimestamp(); // ✅ 한국 시간
+      const deletedAt = getKSTTimestamp();
 
       await Promise.all(
         toDelete.map(async (product) => {
@@ -259,22 +265,12 @@ export default function ProductList() {
     );
   };
 
-  const getStockCount = (product: ProductWithId): number => {
-    const totalIn =
-      product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
-    const totalOut =
-      product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
-    return totalIn - totalOut;
-  };
-
   const filtered = products.filter((p) => {
-    // 🔹 문자열 정규화 (소문자 + trim)
     const norm = (v?: string) =>
       typeof v === "string" ? v.trim().toLowerCase() : "";
 
     const kw = norm(keyword);
 
-    // 🔹 키워드 검색 범위: 상품명, 상품번호, 브랜드
     const matchKeyword =
       norm(p.상품명).includes(kw) ||
       norm(p.상품번호).includes(kw) ||
@@ -292,7 +288,7 @@ export default function ProductList() {
   const getSortValue = (p: ProductWithId, key: SortKey) => {
     switch (key) {
       case "번호":
-        return Number(p.번호) || 0; // 🔹 숫자 변환해서 정렬
+        return Number(p.번호) || 0;
       case "상품번호":
         return p.상품번호 ?? "";
       case "상품명":
@@ -358,7 +354,6 @@ export default function ProductList() {
           const prevHistory = (p as any)[historyKey] ?? [];
           const newHistory = [...prevHistory, { 금액: value, 날짜: ts }];
 
-          // 🔸 문서 전체를 덮어쓰지 않고 해당 필드만 갱신
           await updateDoc(doc(db, "products", p.id), {
             [historyKey]: newHistory,
           });
@@ -378,184 +373,221 @@ export default function ProductList() {
     }
   };
 
+  const inputStyle =
+    "bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
+
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
-          marginBottom: "8px",
-        }}
-      >
-        <input
-          placeholder="검색 (상품명 또는 상품번호)"
-          value={keyword}
-          onChange={handleSearch}
-        />
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as SortKey)}
-        >
-          <option value="번호">순번</option>
-          <option value="상품명">상품명</option>
-          <option value="상품번호">상품번호</option>
-          <option value="브랜드">브랜드</option>
-        </select>
-        <select
-          value={selectedBrand}
-          onChange={(e) => {
-            setSelectedBrand(e.target.value);
-            setCurrentPage(0);
-          }}
-        >
-          <option value="">브랜드 선택</option>
-          {allBrand
-            .slice()
-            .sort((a, b) => a.localeCompare(b))
-            .map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-        </select>
-        <select
-          value={selectedCategory1}
-          onChange={(e) => {
-            setSelectedCategory1(e.target.value);
-            setCurrentPage(0);
-          }}
-        >
-          <option value="">카테고리1 전체</option>
-          {allCategory1
-            .slice()
-            .sort((a, b) => a.localeCompare(b))
-            .map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-        </select>
+    <div className="max-w-6xl mx-auto p-6 bg-slate-950 text-slate-100 min-h-screen">
+      <h1 className="text-2xl font-bold text-slate-100 mb-6">상품 목록 관리</h1>
 
-        <select
-          value={selectedCategory2}
-          onChange={(e) => {
-            setSelectedCategory2(e.target.value);
-            setCurrentPage(0);
-          }}
-        >
-          <option value="">카테고리2 전체</option>
-          {allCategory2
-            .slice()
-            .sort((a, b) => a.localeCompare(b))
-            .map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-        </select>
-
-        <select
-          value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-        >
-          <option value="asc">오름차순</option>
-          <option value="desc">내림차순</option>
-        </select>
-        <input
-          type="checkbox"
-          checked={
-            selectedIds.length > 0 &&
-            paginatedProducts.every((p) => selectedIds.includes(p.id))
-          }
-          onChange={(e) => {
-            const isChecked = e.target.checked;
-            if (isChecked) {
-              const idsToAdd = paginatedProducts
-                .map((p) => p.id)
-                .filter((id) => !selectedIds.includes(id));
-              setSelectedIds((prev) => [...prev, ...idsToAdd]);
-            } else {
-              const idsToRemove = paginatedProducts.map((p) => p.id);
-              setSelectedIds((prev) =>
-                prev.filter((id) => !idsToRemove.includes(id))
-              );
-            }
-          }}
-        />
-        <span>전체 선택</span>
-
-        <button onClick={handleBulkDelete} disabled={selectedIds.length === 0}>
-          선택 삭제 ({selectedIds.length})
-        </button>
-        {/* 일괄 가격 수정 UI */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <select
-            value={bulkField}
-            onChange={(e) => setBulkField(e.target.value as BulkField)}
-            title="수정할 항목"
-          >
-            <option value="원가">원가</option>
-            <option value="단가">단가</option>
-            <option value="판매가">판매가</option>
-          </select>
-
+      {/* 검색 / 필터 / 일괄처리 바 */}
+      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4">
+        {/* 상단 검색 & 필터 영역 */}
+        <div className="flex flex-wrap items-center gap-2">
           <input
-            type="number"
-            placeholder="수정 금액(원)"
-            value={bulkValue}
-            onChange={(e) => setBulkValue(e.target.value)}
-            style={{ width: 140 }}
+            placeholder="검색 (상품명 또는 상품번호)"
+            value={keyword}
+            onChange={handleSearch}
+            className={`${inputStyle} flex-1 min-w-[200px]`}
           />
 
-          <button
-            onClick={handleBulkPriceUpdate}
-            disabled={
-              isUpdating ||
-              selectedIds.length === 0 ||
-              bulkValue.trim() === "" ||
-              Number.isNaN(Number(bulkValue))
-            }
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className={inputStyle}
           >
-            {isUpdating ? "수정 중..." : "수정"}
-          </button>
-        </div>
-        <button
-          onClick={() => downloadCsv(sorted, "filtered_all")}
-          title="필터+정렬된 전체 결과를 CSV로 저장"
-        >
-          CSV 내보내기
-        </button>
+            <option value="번호">순번 정렬</option>
+            <option value="상품명">상품명 정렬</option>
+            <option value="상품번호">상품번호 정렬</option>
+            <option value="브랜드">브랜드 정렬</option>
+          </select>
 
-        {/* <button
-          onClick={() => downloadCsv(paginatedProducts, "current_page")}
-          title="현재 페이지 항목만 CSV로 저장"
-        >
-          CSV 내보내기(현재 페이지)
-        </button> */}
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+            className={inputStyle}
+          >
+            <option value="asc">오름차순</option>
+            <option value="desc">내림차순</option>
+          </select>
+
+          <select
+            value={selectedBrand}
+            onChange={(e) => {
+              setSelectedBrand(e.target.value);
+              setCurrentPage(0);
+            }}
+            className={inputStyle}
+          >
+            <option value="">브랜드 전체</option>
+            {allBrand
+              .slice()
+              .sort((a, b) => a.localeCompare(b))
+              .map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+          </select>
+
+          <select
+            value={selectedCategory1}
+            onChange={(e) => {
+              setSelectedCategory1(e.target.value);
+              setCurrentPage(0);
+            }}
+            className={inputStyle}
+          >
+            <option value="">카테고리1 전체</option>
+            {allCategory1
+              .slice()
+              .sort((a, b) => a.localeCompare(b))
+              .map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+          </select>
+
+          <select
+            value={selectedCategory2}
+            onChange={(e) => {
+              setSelectedCategory2(e.target.value);
+              setCurrentPage(0);
+            }}
+            className={inputStyle}
+          >
+            <option value="">카테고리2 전체</option>
+            {allCategory2
+              .slice()
+              .sort((a, b) => a.localeCompare(b))
+              .map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+          </select>
+
+          {/* 🔹 페이지당 개수 선택 드롭다운 */}
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(0); // 개수 변경 시 첫 페이지로 리셋
+            }}
+            className={`${inputStyle} text-blue-400 font-semibold`}
+            title="페이지당 표시 개수"
+          >
+            <option value={50}>50개씩 보기</option>
+            <option value={100}>100개씩 보기</option>
+            <option value={200}>200개씩 보기</option>
+            <option value={300}>300개씩 보기</option>
+            <option value={400}>400개씩 보기</option>
+            <option value={500}>500개씩 보기</option>
+          </select>
+        </div>
+
+        {/* 하단 선택 액션 및 가격 일괄 수정 영역 */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={
+                  selectedIds.length > 0 &&
+                  paginatedProducts.every((p) => selectedIds.includes(p.id))
+                }
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (isChecked) {
+                    const idsToAdd = paginatedProducts
+                      .map((p) => p.id)
+                      .filter((id) => !selectedIds.includes(id));
+                    setSelectedIds((prev) => [...prev, ...idsToAdd]);
+                  } else {
+                    const idsToRemove = paginatedProducts.map((p) => p.id);
+                    setSelectedIds((prev) =>
+                      prev.filter((id) => !idsToRemove.includes(id))
+                    );
+                  }
+                }}
+                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500"
+              />
+              전체 선택
+            </label>
+
+            <button
+              onClick={handleBulkDelete}
+              disabled={selectedIds.length === 0}
+              className="bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 text-rose-300 text-xs px-3 py-2 rounded-lg font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              선택 삭제 ({selectedIds.length})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkField}
+              onChange={(e) => setBulkField(e.target.value as BulkField)}
+              title="수정할 항목"
+              className={inputStyle}
+            >
+              <option value="원가">원가</option>
+              <option value="단가">단가</option>
+              <option value="판매가">판매가</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="수정 금액(원)"
+              value={bulkValue}
+              onChange={(e) => setBulkValue(e.target.value)}
+              className={`${inputStyle} w-32`}
+            />
+
+            <button
+              onClick={handleBulkPriceUpdate}
+              disabled={
+                isUpdating ||
+                selectedIds.length === 0 ||
+                bulkValue.trim() === "" ||
+                Number.isNaN(Number(bulkValue))
+              }
+              className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isUpdating ? "수정 중..." : "일괄 수정"}
+            </button>
+
+            <button
+              onClick={() => downloadCsv(sorted, "filtered_all")}
+              title="필터+정렬된 전체 결과를 CSV로 저장"
+              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium px-3 py-2 rounded-lg transition"
+            >
+              📥 CSV 내보내기
+            </button>
+          </div>
+        </div>
       </div>
 
-      <ul>
+      {/* 상품 카드 목록 */}
+      <div className="space-y-3">
         {paginatedProducts.map((p) => {
           const currentStock = getStockCount(p);
           const imagePath = p.사진이력?.at(-1)?.경로;
           const totalOut = getTotalOut(p);
           const totalIn = getTotalIn(p);
 
+          const getStockBadgeClass = (stock: number) => {
+            if (stock <= 20) return "bg-rose-950/80 text-rose-300 border-rose-800";
+            if (stock <= 50) return "bg-amber-950/80 text-amber-300 border-amber-800";
+            if (stock <= 100) return "bg-emerald-950/80 text-emerald-300 border-emerald-800";
+            return "bg-slate-800 text-slate-300 border-slate-700";
+          };
+
           return (
-            <li
+            <div
               key={p.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-                padding: "10px 30px",
-                margin: "10px 0",
-                borderRadius: "10px",
-                // borderBottom: "1px solid #ddd",
-                paddingLeft: "30px",
-                backgroundColor: "#ffffff08",
-              }}
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 flex items-center justify-between gap-4 transition shadow-md"
             >
               <input
                 type="checkbox"
@@ -564,131 +596,107 @@ export default function ProductList() {
                   e.stopPropagation();
                   toggleSelection(p.id);
                 }}
+                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 shrink-0 cursor-pointer"
               />
 
               <div
-                style={{
-                  display: "flex",
-                  cursor: "pointer",
-                  flex: 1,
-                  alignItems: "center",
-                }}
+                className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
                 onClick={() => setSelectedProduct(p)}
               >
-                <div
-                  style={{
-                    width: "50px",
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
-                >
+                <span className="text-xs font-mono font-bold text-slate-500 w-10 text-center shrink-0">
                   {String(p.번호).padStart(3, "0")}
-                </div>
+                </span>
 
-                <div
-                  style={{
-                    width: "100px",
-                    height: "100px",
-                    marginLeft: "10px",
-                    marginRight: "10px",
-                    borderRadius: "10px",
-                    overflow: "hidden",
-                    display: "flex",
-                  }}
-                >
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-slate-800 shrink-0 flex items-center justify-center">
                   {imagePath ? (
                     <ProductImage path={imagePath} />
                   ) : (
-                    <div
-                      style={{
-                        width: "100px",
-                        height: "100px",
-                        background: "#ffffff10",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        fontSize: "12px",
-                        // objectFit: "cover"
-                      }}
-                    >
+                    <span className="text-[10px] text-slate-600">
                       이미지 없음
-                    </div>
+                    </span>
                   )}
                 </div>
-                {/* 🔽 텍스트 영역: 세로 정렬로 묶기 */}
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                >
-                  <strong style={{ display: "block" }}>
-                    상품명:{" "}
+
+                <div className="min-w-0 flex-1 space-y-1">
+                  <h3 className="text-sm font-semibold text-slate-100 truncate">
                     {[p.상품번호, p.상품명, p.카테고리2, p.알사이즈]
                       .filter(Boolean)
                       .join("_")}
-                  </strong>
+                  </h3>
 
-                  <div>
-                    {p.카테고리1} / {p.카테고리2} / {p.브랜드}
-                    <br />
-                    원가: {p.원가이력?.[p.원가이력.length - 1]?.금액}원 / 단가:{" "}
-                    {p.단가이력?.[p.단가이력.length - 1]?.금액}원 / 판매가:{" "}
-                    {p.판매가이력?.[p.판매가이력.length - 1]?.금액}원
-                    <br />
-                    <strong>누적 입고:</strong> {totalIn}개 /{" "}
-                    <strong>누적 출고:</strong> {totalOut}개
-                    {p.알수량 ? <strong> / 알 수량:</strong> : ""}
-                    {p.알수량 ? `${p.알수량}개` : ""}
-                    <br />
-                    <strong
-                      style={{
-                        color:
-                          currentStock <= 20
-                            ? "red"
-                            : currentStock <= 50
-                            ? "orange"
-                            : currentStock <= 100
-                            ? "green"
-                            : "white",
-                      }}
-                    >
-                      재고: {currentStock}개
-                    </strong>
+                  <p className="text-xs text-slate-400">
+                    <span className="text-slate-300">{p.카테고리1 || "-"}</span> /{" "}
+                    <span className="text-slate-300">{p.카테고리2 || "-"}</span> /{" "}
+                    <span className="text-blue-400 font-medium">{p.브랜드 || "브랜드 미지정"}</span>
+                  </p>
+
+                  <div className="text-xs text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
+                    <span>원가: <strong className="text-slate-200">{p.원가이력?.[p.원가이력.length - 1]?.금액 ?? 0}원</strong></span>
+                    <span>단가: <strong className="text-slate-200">{p.단가이력?.[p.단가이력.length - 1]?.금액 ?? 0}원</strong></span>
+                    <span>판매가: <strong className="text-slate-200">{p.판매가이력?.[p.판매가이력.length - 1]?.금액 ?? 0}원</strong></span>
                   </div>
+
+                  <div className="text-xs text-slate-400 flex items-center gap-2 pt-0.5">
+                    <span>누적 입고: <strong className="text-slate-300">{totalIn}</strong>개</span>
+                    <span>/</span>
+                    <span>누적 출고: <strong className="text-slate-300">{totalOut}</strong>개</span>
+                    {p.알수량 && (
+                      <>
+                        <span>/</span>
+                        <span>알 수량: <strong className="text-slate-300">{p.알수량}개</strong></span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0">
+                  <span
+                    className={`inline-block border text-xs font-bold px-2.5 py-1 rounded-full ${getStockBadgeClass(
+                      currentStock
+                    )}`}
+                  >
+                    재고 {currentStock}개
+                  </span>
                 </div>
               </div>
 
-              <div>
+              <div className="shrink-0 px-2 border-l border-slate-800">
                 <QRCodeDisplay value={p.상품번호} />
               </div>
 
-              <div>
-                <button
-                  style={{ height: "50px" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(p.id);
-                  }}
-                >
-                  ❌ 삭제
-                </button>
-              </div>
-            </li>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(p.id);
+                }}
+                className="shrink-0 text-slate-500 hover:text-rose-400 p-2 rounded-lg hover:bg-slate-800 transition"
+                title="상품 삭제"
+              >
+                ❌
+              </button>
+            </div>
           );
         })}
-      </ul>
+      </div>
 
-      <ReactPaginate
-        previousLabel={"← 이전"}
-        nextLabel={"다음 →"}
-        breakLabel={"..."}
-        pageCount={pageCount}
-        marginPagesDisplayed={1}
-        pageRangeDisplayed={5}
-        onPageChange={({ selected }) => setCurrentPage(selected)}
-        containerClassName={"pagination"}
-        activeClassName={"active"}
-        disabledClassName={"disabled"}
-      />
+      {/* 페이지네이션 */}
+      <div className="mt-6 flex justify-center">
+        <ReactPaginate
+          previousLabel={"← 이전"}
+          nextLabel={"다음 →"}
+          breakLabel={"..."}
+          pageCount={pageCount}
+          marginPagesDisplayed={1}
+          pageRangeDisplayed={5}
+          onPageChange={({ selected }) => setCurrentPage(selected)}
+          forcePage={currentPage}
+          containerClassName={"pagination"}
+          activeClassName={"active"}
+          disabledClassName={"disabled"}
+        />
+      </div>
 
+      {/* 상품 상세 및 수정 모달 */}
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
