@@ -188,275 +188,285 @@ export default function ProductModal({
   };
 
   const inputStyle =
-    "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
+    "w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
 
   return (
-<div
+    <div
       className="fixed inset-0 flex justify-center items-center z-50 p-4"
       style={{
-        backgroundColor: "rgba(0, 0, 0, 0.5)", // 반투명 검은색 배경
-        backdropFilter: "blur(10px)",            // 표준 CSS 블러
-        WebkitBackdropFilter: "blur(4px)",      // Safari 브라우저 지원
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(4px)",
       }}
     >
-      <div className="bg-black border border-slate-800 text-slate-100 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6">
-        {/* 모달 헤더 */}
-        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-          <h2 className="text-lg font-bold text-slate-100">상품 상세 정보 수정</h2>
+      <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* 고정 모달 헤더 */}
+        <div className="flex justify-between items-center border-b border-slate-800 px-6 py-3.5 bg-slate-900 shrink-0">
+          <h2 className="text-base font-bold text-slate-100">상품 상세 정보 수정</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 text-xl font-bold p-1 rounded-lg transition"
+            className="text-slate-400 hover:text-slate-200 text-lg font-bold p-1 rounded-lg transition"
           >
             ✕
           </button>
         </div>
 
-        {/* 상단: 이미지 & 기본 정보 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
-          <div className="flex flex-col items-center justify-center">
-            {(previewUrl || product.사진이력?.at(-1)?.경로) ? (
-              <img
-                src={previewUrl || product.사진이력?.at(-1)?.경로}
-                alt="상품 이미지"
-                className="w-32 h-32 object-cover rounded-lg border border-slate-800 bg-slate-900"
-              />
-            ) : (
-              <div className="w-32 h-32 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center text-xs text-slate-600">
-                이미지 없음
+        {/* 스크롤 가능한 본문 영역 */}
+        <div className="p-5 space-y-5 overflow-y-auto flex-1 text-xs">
+          {/* 상단: 이미지 & 기본 정보 (2열) */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 items-center">
+            <div className="sm:col-span-1 flex flex-col items-center justify-center gap-2">
+              {previewUrl || product.사진이력?.at(-1)?.경로 ? (
+                <img
+                  src={previewUrl || product.사진이력?.at(-1)?.경로}
+                  alt="상품 이미지"
+                  className="w-24 h-24 object-cover rounded-lg border border-slate-800 bg-slate-900"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center text-[11px] text-slate-600">
+                  이미지 없음
+                </div>
+              )}
+            </div>
+
+            <div className="sm:col-span-3 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    상품명
+                  </label>
+                  <input
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    className={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    브랜드
+                  </label>
+                  <input
+                    value={editedBrand}
+                    onChange={(e) => setEditedBrand(e.target.value)}
+                    placeholder="#조계사 #템플스테이"
+                    className={inputStyle}
+                  />
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="md:col-span-2 space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
-                상품명
-              </label>
-              <input
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                className={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
-                브랜드
-              </label>
-              <input
-                value={editedBrand}
-                onChange={(e) => setEditedBrand(e.target.value)}
-                placeholder="#조계사 #템플스테이 형식 가능"
-                className={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
-                이미지 수정
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="block w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 가격 & 마진 설정 계산기 Section */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-300 border-b border-slate-800 pb-2">
-            가격 및 마진 설정
-          </h3>
-
-          {/* 원가 입력 */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">
-              원가 (원)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={editedCost}
-              onChange={(e) => setEditedCost(Number(e.target.value) || 0)}
-              className={inputStyle}
-            />
-          </div>
-
-          {/* 원가 → 단가 마진 계산 */}
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                <span className="text-xs text-slate-400 shrink-0">원가 마진(%)</span>
+              <div>
+                <label className="block font-semibold text-slate-400 mb-1">
+                  이미지 교체
+                </label>
                 <input
-                  type="number"
-                  step="0.1"
-                  value={costMarkupPct}
-                  onChange={(e) => setCostMarkupPct(Number(e.target.value) || 0)}
-                  placeholder="예: 30"
-                  className={`${inputStyle} w-24`}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="block w-full text-[11px] text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
                 />
               </div>
-
-              <button
-                type="button"
-                onClick={() => setEditedUnitPrice(expectedUnitPrice)}
-                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg font-medium transition shrink-0"
-              >
-                단가에 적용
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-400 flex items-center gap-2">
-              <span>예상 단가: <strong className="text-slate-200">{formatKRW(expectedUnitPrice)}원</strong></span>
-              <span>(마진 {expectedUnitMargin}%)</span>
-              <span className={`border text-[10px] font-bold px-2 py-0.5 rounded-full ${labelBadgeStyle(expectedUnitLabel)}`}>
-                {expectedUnitLabel}
-              </span>
             </div>
           </div>
 
-          {/* 단가 입력 & 마진 진단 */}
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-slate-400">
-              단가 (원)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={editedUnitPrice}
-              onChange={(e) => setEditedUnitPrice(Number(e.target.value) || 0)}
-              className={inputStyle}
-            />
-            <div className="text-xs text-slate-400 flex items-center gap-2 pt-1">
-              <span>현재 단가 마진: <strong className="text-slate-200">{unitMargin}%</strong></span>
-              <span className={`border text-[10px] font-bold px-2 py-0.5 rounded-full ${labelBadgeStyle(unitLabel)}`}>
-                {unitLabel}
-              </span>
-              <span className="text-slate-500 text-[11px]">
-                (생산자 기준: {PRODUCER.low}~{PRODUCER.high}%)
-              </span>
-            </div>
-          </div>
-
-          {/* 단가 → 판매가 마진 계산 */}
-          <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                <span className="text-xs text-slate-400 shrink-0">단가 마진(%)</span>
+          {/* 가격 & 마진 설정 (2열 그리드 배치) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <h3 className="font-semibold text-slate-300">가격 및 마진 설정</h3>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-400">원가 (원):</span>
                 <input
                   type="number"
-                  step="0.1"
-                  value={unitMarkupPct}
-                  onChange={(e) => setUnitMarkupPct(Number(e.target.value) || 0)}
-                  placeholder="예: 20"
-                  className={`${inputStyle} w-24`}
+                  min={0}
+                  value={editedCost}
+                  onChange={(e) => setEditedCost(Number(e.target.value) || 0)}
+                  className={`${inputStyle} w-32 font-medium text-right`}
                 />
               </div>
-
-              <button
-                type="button"
-                onClick={() => setEditedSalePrice(expectedSalePrice)}
-                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded-lg font-medium transition shrink-0"
-              >
-                판매가에 적용
-              </button>
             </div>
 
-            <div className="text-xs text-slate-400 flex items-center gap-2">
-              <span>예상 판매가: <strong className="text-slate-200">{formatKRW(expectedSalePrice)}원</strong></span>
-              <span>(마진 {expectedSaleMargin}%)</span>
-              <span className={`border text-[10px] font-bold px-2 py-0.5 rounded-full ${labelBadgeStyle(expectedSaleLabel)}`}>
-                {expectedSaleLabel}
-              </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {/* 왼쪽 열: 단가 설정 (원가 → 단가) */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="font-bold text-slate-300 block border-b border-slate-800/60 pb-1">
+                    1. 단가 (생산자)
+                  </span>
+
+                  {/* 마진율 계산기 */}
+                  <div className="flex items-center justify-between gap-1.5 bg-slate-900/80 p-2 rounded-lg border border-slate-800/80">
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <span className="text-slate-400 shrink-0">마진(%)</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={costMarkupPct}
+                        onChange={(e) => setCostMarkupPct(Number(e.target.value) || 0)}
+                        placeholder="예: 30"
+                        className={`${inputStyle} w-16 text-center`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditedUnitPrice(expectedUnitPrice)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] px-2 py-1 rounded-md transition shrink-0"
+                    >
+                      단가 적용 ({formatKRW(expectedUnitPrice)}원)
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-slate-400 flex items-center justify-between px-1">
+                    <span>예상 마진: {expectedUnitMargin}%</span>
+                    <span className={`border text-[10px] font-bold px-1.5 py-0.2 rounded-full ${labelBadgeStyle(expectedUnitLabel)}`}>
+                      {expectedUnitLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 실제 단가 입력 */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    최종 적용 단가 (원)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editedUnitPrice}
+                    onChange={(e) => setEditedUnitPrice(Number(e.target.value) || 0)}
+                    className={`${inputStyle} font-semibold`}
+                  />
+                  <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1.5">
+                    <span>현재 마진: <strong className="text-slate-200">{unitMargin}%</strong></span>
+                    <span className={`border text-[10px] font-bold px-1.5 py-0.2 rounded-full ${labelBadgeStyle(unitLabel)}`}>
+                      {unitLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 오른쪽 열: 판매가 설정 (단가 → 판매가) */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="font-bold text-slate-300 block border-b border-slate-800/60 pb-1">
+                    2. 판매가 (납품업체)
+                  </span>
+
+                  {/* 마진율 계산기 */}
+                  <div className="flex items-center justify-between gap-1.5 bg-slate-900/80 p-2 rounded-lg border border-slate-800/80">
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <span className="text-slate-400 shrink-0">마진(%)</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={unitMarkupPct}
+                        onChange={(e) => setUnitMarkupPct(Number(e.target.value) || 0)}
+                        placeholder="예: 20"
+                        className={`${inputStyle} w-16 text-center`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditedSalePrice(expectedSalePrice)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] px-2 py-1 rounded-md transition shrink-0"
+                    >
+                      판매가 적용 ({formatKRW(expectedSalePrice)}원)
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-slate-400 flex items-center justify-between px-1">
+                    <span>예상 마진: {expectedSaleMargin}%</span>
+                    <span className={`border text-[10px] font-bold px-1.5 py-0.2 rounded-full ${labelBadgeStyle(expectedSaleLabel)}`}>
+                      {expectedSaleLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 실제 판매가 입력 */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    최종 적용 판매가 (원)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editedSalePrice}
+                    onChange={(e) => setEditedSalePrice(Number(e.target.value) || 0)}
+                    className={`${inputStyle} font-semibold`}
+                  />
+                  <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1.5">
+                    <span>현재 마진: <strong className="text-slate-200">{saleMargin}%</strong></span>
+                    <span className={`border text-[10px] font-bold px-1.5 py-0.2 rounded-full ${labelBadgeStyle(saleLabel)}`}>
+                      {saleLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 판매가 입력 & 마진 진단 */}
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-slate-400">
-              판매가 (원)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={editedSalePrice}
-              onChange={(e) => setEditedSalePrice(Number(e.target.value) || 0)}
-              className={inputStyle}
-            />
-            <div className="text-xs text-slate-400 flex items-center gap-2 pt-1">
-              <span>현재 판매가 마진: <strong className="text-slate-200">{saleMargin}%</strong></span>
-              <span className={`border text-[10px] font-bold px-2 py-0.5 rounded-full ${labelBadgeStyle(saleLabel)}`}>
-                {saleLabel}
-              </span>
-              <span className="text-slate-500 text-[11px]">
-                (납품업체 기준: {SUPPLIER.low}~{SUPPLIER.high}%)
-              </span>
+          {/* 입출고 관리 및 현황 (2열 카드 배치) */}
+          <div className="space-y-2.5">
+            <h3 className="font-semibold text-slate-300 border-b border-slate-800 pb-1.5">
+              입출고 관리 및 현황
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* 수량 추가 카드 */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    입고 수량 추가
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editedInQty}
+                    onChange={(e) => setEditedInQty(Number(e.target.value) || 0)}
+                    className={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-400 mb-1">
+                    출고 수량 추가
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editedOutQty}
+                    onChange={(e) => setEditedOutQty(Number(e.target.value) || 0)}
+                    className={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* 재고 현황 요약 카드 */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-400 items-center">
+                <div>
+                  최근 입고: <strong className="text-slate-200">{product.입고기록?.at(-1)?.수량 ?? 0}개</strong>
+                </div>
+                <div>
+                  최근 입고일: <strong className="text-slate-200">{product.입고기록?.at(-1)?.날짜?.split(" ")[0] ?? "-"}</strong>
+                </div>
+                <div>
+                  최근 출고: <strong className="text-slate-200">{product.출고기록?.at(-1)?.수량 ?? 0}개</strong>
+                </div>
+                <div>
+                  최근 출고일: <strong className="text-slate-200">{product.출고기록?.at(-1)?.날짜?.split(" ")[0] ?? "-"}</strong>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                  <span>현재 재고 수량:</span>
+                  <strong className="text-blue-400 font-bold text-sm">{getStockCount(product)}개</strong>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 입출고 & 재고 현황 Section */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-300 border-b border-slate-800 pb-2">
-            입출고 관리 및 현황
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
-                입고 수량 추가
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={editedInQty}
-                onChange={(e) => setEditedInQty(Number(e.target.value) || 0)}
-                className={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
-                출고 수량 추가
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={editedOutQty}
-                onChange={(e) => setEditedOutQty(Number(e.target.value) || 0)}
-                className={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-slate-400">
-            <div>
-              최근 입고: <strong className="text-slate-200">{product.입고기록?.at(-1)?.수량 ?? 0}개</strong>
-            </div>
-            <div>
-              최근 입고일: <strong className="text-slate-200">{product.입고기록?.at(-1)?.날짜 ?? "-"}</strong>
-            </div>
-            <div>
-              최근 출고: <strong className="text-slate-200">{product.출고기록?.at(-1)?.수량 ?? 0}개</strong>
-            </div>
-            <div>
-              최근 출고일: <strong className="text-slate-200">{product.출고기록?.at(-1)?.날짜 ?? "-"}</strong>
-            </div>
-            <div className="col-span-2 md:col-span-1">
-              현재 재고: <strong className="text-blue-400 font-bold">{getStockCount(product)}개</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* 하단 액션 버튼 */}
-        <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
+        {/* 고정 하단 액션 버튼 */}
+        <div className="flex justify-end gap-2 px-6 py-3 border-t border-slate-800 bg-slate-900 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium px-4 py-2 rounded-lg transition"
           >
             닫기
           </button>
@@ -464,7 +474,7 @@ export default function ProductModal({
             type="button"
             onClick={handleUpdate}
             disabled={isUpdating}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
           >
             {isUpdating ? "수정 중..." : "수정하기"}
           </button>

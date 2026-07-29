@@ -1,6 +1,6 @@
 .logo {
   height: 6em;
-  padding: 1.5em;
+  padding: 1.5em 1.5em 1.5em 0; /* 좌측 여백(padding-left)을 0으로 조정하여 왼쪽 끝에 밀착 */
   will-change: filter;
   transition: filter 300ms;
 }
@@ -26,10 +26,13 @@
   }
 }
 
+/* 좌측 정렬 레이아웃 설정 */
 .card {
-  padding: 2em;
+  padding: 2em 0; /* 좌우 여백을 줄여 왼쪽 정렬 기준선 맞춤 */
+  text-align: left; /* 카드 내부 텍스트 좌측 정렬 */
 }
 
 .read-the-docs {
   color: #888;
+  text-align: left; /* 좌측 정렬 */
 }
