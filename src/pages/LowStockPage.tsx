@@ -71,9 +71,9 @@ export default function LowStockPage() {
             className="w-14 h-14 object-cover rounded-lg border border-slate-800 bg-slate-950 shrink-0"
           />
         ) : (
-          <div className="w-14 h-14 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center text-[10px] text-slate-600 shrink-0">
-            NO IMG
-          </div>
+<div className="w-14 h-14 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center text-slate-600 shrink-0 text-center" style={{fontSize: '8px'}}>
+  NO IMG
+</div>
         )}
 
         <div className="flex-1 min-w-0">
