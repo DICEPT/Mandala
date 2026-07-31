@@ -39,6 +39,11 @@ export default function ProductModal({
   const [costMarkupPct, setCostMarkupPct] = useState<number>(0);
   const [unitMarkupPct, setUnitMarkupPct] = useState<number>(0);
 
+  // ====== 신규: 중국 원가 & 환율 & 배수 관련 상태 ======
+  const [chinaCost, setChinaCost] = useState<number>(0); // 중국 원가 (¥)
+  const [exchangeRate, setExchangeRate] = useState<number>(190); // 환율 (기본 190원)
+  const [costMultiple, setCostMultiple] = useState<number>(1.5); // 배수 (예: 1~2배)
+
   // ====== 공통 유틸 ======
   const formatKRW = (n: number) =>
     new Intl.NumberFormat("ko-KR").format(Math.max(0, Math.round(n)));
@@ -72,6 +77,12 @@ export default function ProductModal({
   // 기준 범위
   const PRODUCER = { low: 40, high: 60 };
   const SUPPLIER = { low: 50, high: 80 };
+
+  // ====== 신규: 중국원가 관련 계산 ======
+  // 기본 환율 적용 원가 (배수 1배 기준)
+  const baseChinaCostKRW = Math.round(chinaCost * exchangeRate);
+  // 배수 적용 한국 원가 (중국원가 * 환율 * 배수)
+  const calculatedKRWCost = Math.round(chinaCost * exchangeRate * costMultiple);
 
   // 실시간 예상가
   const expectedUnitPrice = calcFromPct(editedCost, costMarkupPct);
@@ -266,6 +277,88 @@ export default function ProductModal({
                 />
               </div>
             </div>
+          </div>
+
+          {/* ====== 신규: 중국 원가 계산기 영역 ====== */}
+          <div className="bg-slate-950/80 p-3.5 rounded-xl border border-amber-900/40 space-y-2.5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                🇨🇳 중국 원가 ➔ 한국 원가 계산기
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditedCost(calculatedKRWCost)}
+                disabled={chinaCost <= 0}
+                className="bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white disabled:text-slate-500 font-semibold text-[11px] px-2.5 py-1 rounded-md transition shrink-0"
+              >
+                원가에 적용 ({formatKRW(calculatedKRWCost)}원)
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-400 mb-1">
+                  중국 원가 (¥ 위안)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={chinaCost || ""}
+                  onChange={(e) => setChinaCost(Number(e.target.value) || 0)}
+                  placeholder="예: 25.5"
+                  className={`${inputStyle} text-amber-200 font-medium`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-400 mb-1">
+                  적용 환율 (원/¥)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={exchangeRate || ""}
+                  onChange={(e) => setExchangeRate(Number(e.target.value) || 0)}
+                  placeholder="예: 190"
+                  className={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-400 mb-1">
+                  배수 설정 (1~2배)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  step="0.1"
+                  value={costMultiple || ""}
+                  onChange={(e) => setCostMultiple(Number(e.target.value) || 0)}
+                  placeholder="예: 1.5"
+                  className={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* 계산 결과 실시간 요약 */}
+            {chinaCost > 0 && (
+              <div className="mt-2 pt-2 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                <div className="bg-slate-900/90 p-2 rounded-lg border border-slate-800">
+                  <span className="text-slate-400 block">기본 원가 (1배):</span>
+                  <strong className="text-slate-200">{formatKRW(baseChinaCostKRW)}원</strong>
+                </div>
+                <div className="bg-slate-900/90 p-2 rounded-lg border border-amber-900/30">
+                  <span className="text-amber-400/90 block">배수({costMultiple}배) 적용 원가:</span>
+                  <strong className="text-amber-300 font-bold">{formatKRW(calculatedKRWCost)}원</strong>
+                </div>
+                <div className="col-span-2 sm:col-span-1 bg-slate-900/90 p-2 rounded-lg border border-slate-800 flex flex-col justify-center">
+                  <span className="text-slate-400">예상 단가 마진: <strong className="text-slate-200">{marginPct(calculatedKRWCost, editedUnitPrice)}%</strong></span>
+                  <span className="text-slate-400">예상 판매가 마진: <strong className="text-slate-200">{marginPct(calculatedKRWCost, editedSalePrice)}%</strong></span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 가격 & 마진 설정 (2열 그리드 배치) */}
