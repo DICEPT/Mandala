@@ -213,7 +213,7 @@ export default function ProductList() {
     }
   };
 
-  // 🔹 주문서 담기 (any 타입 및 미사용 변수 제거)
+  // 🔹 주문서 담기
   const handleAddToOrder = () => {
     if (selectedIds.length === 0) {
       alert("주문서에 담을 상품을 먼저 선택해주세요.");
@@ -299,7 +299,6 @@ export default function ProductList() {
   const offset = currentPage * itemsPerPage;
   const paginatedProducts = sorted.slice(offset, offset + itemsPerPage);
 
-  // 🔹 any 대신 안전한 속성 접근으로 수정
   const handleBulkPriceUpdate = async () => {
     if (selectedIds.length === 0) {
       alert("수정할 상품을 선택하세요.");
@@ -358,19 +357,44 @@ export default function ProductList() {
     "bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-slate-950 text-slate-100 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-100">상품 목록 관리</h1>
-        <button
-          onClick={() => navigate("/estimate")}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition shadow flex items-center gap-1.5"
-        >
-          🛒 주문서(견적서) 확인하기
-        </button>
+    <div className="max-w-6xl mx-auto p-6 bg-slate-950 text-slate-100 min-h-screen print:bg-white print:text-black print:p-0">
+      {/* 🔹 인쇄 최적화 인라인 스타일 */}
+      <style>{`
+        @media print {
+          body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+          }
+          .print-card {
+            page-break-inside: avoid;
+            border: 1px solid #e2e8f0 !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}</style>
+
+      {/* 헤더 바 */}
+      <div className="flex justify-between items-center mb-6 print:mb-4">
+        <h1 className="text-2xl font-bold text-slate-100 print:text-black">상품 목록 관리</h1>
+        <div className="flex items-center gap-2 print:hidden">
+          <button
+            onClick={() => window.print()}
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-semibold px-4 py-2 rounded-lg transition shadow"
+          >
+            🖨️ 인쇄하기
+          </button>
+          <button
+            onClick={() => navigate("/estimate")}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition shadow flex items-center gap-1.5"
+          >
+            🛒 주문서(견적서) 확인하기
+          </button>
+        </div>
       </div>
 
-      {/* 검색 / 필터 / 일괄처리 바 */}
-      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4">
+      {/* 검색 / 필터 / 일괄처리 바 (인쇄 시 자동 숨김) */}
+      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
           <input
             placeholder="검색 (상품명 또는 상품번호)"
@@ -561,17 +585,22 @@ export default function ProductList() {
           const totalIn = getTotalIn(p);
 
           const getStockBadgeClass = (stock: number) => {
-            if (stock <= 20) return "bg-rose-950/80 text-rose-300 border-rose-800";
-            if (stock <= 50) return "bg-amber-950/80 text-amber-300 border-amber-800";
-            if (stock <= 100) return "bg-emerald-950/80 text-emerald-300 border-emerald-800";
-            return "bg-slate-800 text-slate-300 border-slate-700";
+            if (stock <= 20) return "bg-rose-950/80 text-rose-300 border-rose-800 print:bg-transparent print:text-red-600 print:border-red-600";
+            if (stock <= 50) return "bg-amber-950/80 text-amber-300 border-amber-800 print:bg-transparent print:text-amber-700 print:border-amber-700";
+            if (stock <= 100) return "bg-emerald-950/80 text-emerald-300 border-emerald-800 print:bg-transparent print:text-emerald-700 print:border-emerald-700";
+            return "bg-slate-800 text-slate-300 border-slate-700 print:bg-transparent print:text-black print:border-slate-400";
           };
+
+          const latestCost = getLatest(p.원가이력)?.금액 ?? 0;
+          const latestUnit = getLatest(p.단가이력)?.금액 ?? 0;
+          const latestPrice = getLatest(p.판매가이력)?.금액 ?? 0;
 
           return (
             <div
               key={p.id}
-              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 flex items-center justify-between gap-4 transition shadow-md"
+              className="print-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 flex items-center justify-between gap-4 transition shadow-md print:shadow-none"
             >
+              {/* 체크박스 (인쇄 시 숨김) */}
               <input
                 type="checkbox"
                 checked={selectedIds.includes(p.id)}
@@ -579,55 +608,64 @@ export default function ProductList() {
                   e.stopPropagation();
                   toggleSelection(p.id);
                 }}
-                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 shrink-0 cursor-pointer"
+                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 shrink-0 cursor-pointer print:hidden"
               />
 
               <div
                 className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
                 onClick={() => setSelectedProduct(p)}
               >
-                <span className="text-xs font-mono font-bold text-slate-500 w-10 text-center shrink-0">
+                <span className="text-xs font-mono font-bold text-slate-500 print:text-black w-10 text-center shrink-0">
                   {String(p.번호).padStart(3, "0")}
                 </span>
 
-                <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-slate-800 shrink-0 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-950 border border-slate-800 shrink-0 flex items-center justify-center print:border-slate-300 print:bg-transparent">
                   {imagePath ? (
                     <ProductImage path={imagePath} />
                   ) : (
-                    <span className="text-[10px] text-slate-600">이미지 없음</span>
+                    <span className="text-[10px] text-slate-600 print:text-slate-400">이미지 없음</span>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-1">
-                  <h3 className="text-sm font-semibold text-slate-100 truncate">
+                  <h3 className="text-sm font-semibold text-slate-100 print:text-black truncate">
                     {[p.상품번호, p.상품명, p.카테고리2, p.알사이즈].filter(Boolean).join("_")}
                   </h3>
 
-                  <p className="text-xs text-slate-400">
-                    <span className="text-slate-300">{p.카테고리1 || "-"}</span> /{" "}
-                    <span className="text-slate-300">{p.카테고리2 || "-"}</span> /{" "}
-                    <span className="text-blue-400 font-medium">{p.브랜드 || "브랜드 미지정"}</span>
+                  <p className="text-xs text-slate-400 print:text-slate-600">
+                    <span className="text-slate-300 print:text-black">{p.카테고리1 || "-"}</span> /{" "}
+                    <span className="text-slate-300 print:text-black">{p.카테고리2 || "-"}</span> /{" "}
+                    <span className="text-blue-400 print:text-black font-medium">{p.브랜드 || "브랜드 미지정"}</span>
                   </p>
 
-                  <div className="text-xs text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
-                    <span>원가: <strong className="text-slate-200">{getLatest(p.원가이력)?.금액 ?? 0}원</strong></span>
-                    <span>단가: <strong className="text-slate-200">{getLatest(p.단가이력)?.금액 ?? 0}원</strong></span>
-                    <span>판매가: <strong className="text-slate-200">{getLatest(p.판매가이력)?.금액 ?? 0}원</strong></span>
+                  {/* 🔹 가격 정보 영역 (인쇄 시 검은색 텍스트로 또렷하게 표시) */}
+                  <div className="text-xs text-slate-400 print:text-black flex flex-wrap gap-x-3 gap-y-1">
+                    <span>
+                      원가: <strong className="text-slate-200 print:text-black font-bold">{latestCost.toLocaleString()}원</strong>
+                    </span>
+                    <span>
+                      단가: <strong className="text-slate-200 print:text-black font-bold">{latestUnit.toLocaleString()}원</strong>
+                    </span>
+                    <span>
+                      판매가: <strong className="text-slate-200 print:text-black font-bold">{latestPrice.toLocaleString()}원</strong>
+                    </span>
                   </div>
 
-                  <div className="text-xs text-slate-400 flex items-center gap-2 pt-0.5">
-                    <span>누적 입고: <strong className="text-slate-300">{totalIn}</strong>개</span>
+                  {/* 🔹 수량 정보 영역 (인쇄 시 검은색 텍스트로 또렷하게 표시) */}
+                  <div className="text-xs text-slate-400 print:text-black flex items-center gap-2 pt-0.5">
+                    <span>누적 입고: <strong className="text-slate-300 print:text-black font-bold">{totalIn}</strong>개</span>
                     <span>/</span>
-                    <span>누적 출고: <strong className="text-slate-300">{totalOut}</strong>개</span>
+                    <span>누적 출고: <strong className="text-slate-300 print:text-black font-bold">{totalOut}</strong>개</span>
                     {p.알수량 && (
                       <>
                         <span>/</span>
-                        <span>알 수량: <strong className="text-slate-300">{p.알수량}개</strong></span>
+                        <span>알 수량: <strong className="text-slate-300 print:text-black font-bold">{p.알수량}개</strong></span>
                       </>
                     )}
                   </div>
                 </div>
 
+                {/* 🔹 재고 배지 영역 */}
                 <div className="shrink-0">
                   <span
                     className={`inline-block border text-xs font-bold px-2.5 py-1 rounded-full ${getStockBadgeClass(
@@ -639,16 +677,17 @@ export default function ProductList() {
                 </div>
               </div>
 
-              <div className="shrink-0 px-2 border-l border-slate-800">
+              <div className="shrink-0 px-2 border-l border-slate-800 print:border-slate-300">
                 <QRCodeDisplay value={p.상품번호} />
               </div>
 
+              {/* 삭제 버튼 (인쇄 시 숨김) */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(p.id);
                 }}
-                className="shrink-0 text-slate-500 hover:text-rose-400 p-2 rounded-lg hover:bg-slate-800 transition"
+                className="shrink-0 text-slate-500 hover:text-rose-400 p-2 rounded-lg hover:bg-slate-800 transition print:hidden"
                 title="상품 삭제"
               >
                 ❌
@@ -658,8 +697,8 @@ export default function ProductList() {
         })}
       </div>
 
-      {/* 페이지네이션 */}
-      <div className="mt-6 flex justify-center">
+      {/* 페이지네이션 (인쇄 시 숨김) */}
+      <div className="mt-6 flex justify-center print:hidden">
         <ReactPaginate
           previousLabel={"← 이전"}
           nextLabel={"다음 →"}
