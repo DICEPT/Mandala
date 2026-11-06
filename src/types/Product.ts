@@ -74,3 +74,10 @@ export interface Estimate {
   items: EstimateItem[];
   total: number;
 }
+
+export interface OrderItem {
+  id: string;
+  product: Product;
+  orderQty: number; // 주문 수량
+  price: number;    // 적용 단가 또는 판매가
+}

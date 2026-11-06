@@ -1,4 +1,5 @@
 import { useEffect, useState, ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -8,7 +9,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { Product } from "../types/Product";
+import { Product, PriceHistory, StockRecord } from "../types/Product";
 import ProductModal from "./ProductModal";
 import ProductImage from "./ProductImage";
 import ReactPaginate from "react-paginate";
@@ -19,24 +20,31 @@ interface ProductWithId extends Product {
   id: string;
 }
 
+// 🔹 any 대체용 주문 아이템 타입 정의
+interface OrderCartItem {
+  id: string;
+  product: ProductWithId;
+  orderQty: number;
+  price: number;
+}
+
 type SortKey = "번호" | "상품번호" | "상품명" | "브랜드";
 type SortOrder = "asc" | "desc";
 type BulkField = "원가" | "단가" | "판매가" | "입고" | "출고" | "브랜드";
 
 export default function ProductList() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<ProductWithId[]>([]);
   const [keyword, setKeyword] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("번호");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [selectedProduct, setSelectedProduct] = useState<ProductWithId | null>(
-    null
-  );
+  const [selectedProduct, setSelectedProduct] = useState<ProductWithId | null>(null);
   const [bulkField, setBulkField] = useState<BulkField>("판매가");
   const [bulkValue, setBulkValue] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(0);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(50); // 🔹 기본값 50개 설정
+  const [itemsPerPage, setItemsPerPage] = useState<number>(50);
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedCategory1, setSelectedCategory1] = useState<string>("");
   const [selectedCategory2, setSelectedCategory2] = useState<string>("");
@@ -48,7 +56,6 @@ export default function ProductList() {
     fetchProducts();
   }, []);
 
-  // ✅ CSV 유틸: 엑셀 호환(BOM 포함) + 셀 이스케이프
   const csvEscape = (v: unknown) => {
     const s = v == null ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -70,30 +77,16 @@ export default function ProductList() {
   };
 
   const getStockCount = (product: ProductWithId): number => {
-    const totalIn =
-      product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
-    const totalOut =
-      product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
+    const totalIn = product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
+    const totalOut = product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
     return totalIn - totalOut;
   };
 
   const buildCsv = (list: ProductWithId[]) => {
     const header = [
-      "순번(3자리)",
-      "상품번호",
-      "상품명",
-      "카테고리1",
-      "카테고리2",
-      "브랜드",
-      "원가(최신)",
-      "단가(최신)",
-      "판매가(최신)",
-      "재고",
-      "최근입고수량",
-      "최근입고일",
-      "최근출고수량",
-      "최근출고일",
-      "이미지경로",
+      "순번(3자리)", "상품번호", "상품명", "카테고리1", "카테고리2",
+      "브랜드", "원가(최신)", "단가(최신)", "판매가(최신)", "재고",
+      "최근입고수량", "최근입고일", "최근출고수량", "최근출고일", "이미지경로",
     ];
 
     const rows = list.map((p) => {
@@ -105,7 +98,6 @@ export default function ProductList() {
       const latestUnit = getLatest(p.단가이력)?.금액 ?? "";
       const latestPrice = getLatest(p.판매가이력)?.금액 ?? "";
       const stock = getStockCount(p);
-
       const imagePath = p.사진이력?.at(-1)?.경로 ?? "";
 
       return [
@@ -134,9 +126,7 @@ export default function ProductList() {
 
   const downloadCsv = (list: ProductWithId[], suffix: string) => {
     const csv = buildCsv(list);
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -149,33 +139,16 @@ export default function ProductList() {
 
   const fetchProducts = async () => {
     const snapshot = await getDocs(collection(db, "products"));
-    const productList: ProductWithId[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    const productList: ProductWithId[] = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
     })) as ProductWithId[];
     setProducts(productList);
     setSelectedIds([]);
-    const categories1 = Array.from(
-      new Set(
-        productList
-          .map((p) => p.카테고리1)
-          .filter((x): x is string => typeof x === "string")
-      )
-    );
-    const categories2 = Array.from(
-      new Set(
-        productList
-          .map((p) => p.카테고리2)
-          .filter((x): x is string => typeof x === "string")
-      )
-    );
-    const brands = Array.from(
-      new Set(
-        productList
-          .map((p) => p.브랜드)
-          .filter((x): x is string => typeof x === "string")
-      )
-    );
+
+    const categories1 = Array.from(new Set(productList.map((p) => p.카테고리1).filter((x): x is string => typeof x === "string")));
+    const categories2 = Array.from(new Set(productList.map((p) => p.카테고리2).filter((x): x is string => typeof x === "string")));
+    const brands = Array.from(new Set(productList.map((p) => p.브랜드).filter((x): x is string => typeof x === "string")));
 
     setAllBrand(brands);
     setAllCategory1(categories1);
@@ -197,19 +170,12 @@ export default function ProductList() {
     const productToDelete = products.find((p) => p.id === id);
     if (!productToDelete) return;
 
-    const confirmDelete = window.confirm("정말로 이 상품을 삭제하시겠습니까?");
-    if (!confirmDelete) return;
+    if (!window.confirm("정말로 이 상품을 삭제하시겠습니까?")) return;
 
     try {
       const deletedAt = getKSTTimestamp();
-
-      await setDoc(doc(db, "deleteList", id), {
-        ...productToDelete,
-        deletedAt,
-      });
-
+      await setDoc(doc(db, "deleteList", id), { ...productToDelete, deletedAt });
       await deleteDoc(doc(db, "products", id));
-
       alert("상품이 삭제되었습니다.");
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (error) {
@@ -218,24 +184,15 @@ export default function ProductList() {
     }
   };
 
-  const getTotalOut = (product: ProductWithId): number => {
-    return product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
-  };
-
-  const getTotalIn = (product: ProductWithId): number => {
-    return product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
-  };
+  const getTotalOut = (product: ProductWithId): number => product.출고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
+  const getTotalIn = (product: ProductWithId): number => product.입고기록?.reduce((sum, rec) => sum + rec.수량, 0) ?? 0;
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) {
       alert("삭제할 상품을 선택하세요.");
       return;
     }
-
-    const confirmDelete = window.confirm(
-      `${selectedIds.length}개 상품을 삭제하시겠습니까?`
-    );
-    if (!confirmDelete) return;
+    if (!window.confirm(`${selectedIds.length}개 상품을 삭제하시겠습니까?`)) return;
 
     try {
       const toDelete = products.filter((p) => selectedIds.includes(p.id));
@@ -243,10 +200,7 @@ export default function ProductList() {
 
       await Promise.all(
         toDelete.map(async (product) => {
-          await setDoc(doc(db, "deleteList", product.id), {
-            ...product,
-            deletedAt,
-          });
+          await setDoc(doc(db, "deleteList", product.id), { ...product, deletedAt });
           await deleteDoc(doc(db, "products", product.id));
         })
       );
@@ -259,6 +213,46 @@ export default function ProductList() {
     }
   };
 
+  // 🔹 주문서 담기 (any 타입 및 미사용 변수 제거)
+  const handleAddToOrder = () => {
+    if (selectedIds.length === 0) {
+      alert("주문서에 담을 상품을 먼저 선택해주세요.");
+      return;
+    }
+
+    const savedCart = localStorage.getItem("orderList");
+    const existingOrders: OrderCartItem[] = savedCart ? JSON.parse(savedCart) : [];
+
+    const selectedProducts = products.filter((p) => selectedIds.includes(p.id));
+    const newOrders = [...existingOrders];
+
+    selectedProducts.forEach((p) => {
+      const existingIndex = newOrders.findIndex((item) => item.id === p.id);
+      const latestPrice = getLatest(p.판매가이력)?.금액 ?? getLatest(p.단가이력)?.금액 ?? 0;
+
+      if (existingIndex > -1) {
+        newOrders[existingIndex].orderQty += 1;
+      } else {
+        newOrders.push({
+          id: p.id,
+          product: p,
+          orderQty: 1,
+          price: latestPrice,
+        });
+      }
+    });
+
+    localStorage.setItem("orderList", JSON.stringify(newOrders));
+
+    if (
+      window.confirm(
+        `${selectedProducts.length}개 상품을 주문서에 담았습니다.\n주문서 페이지로 바로 이동하시겠습니까?`
+      )
+    ) {
+      navigate("/estimate");
+    }
+  };
+
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
@@ -266,20 +260,12 @@ export default function ProductList() {
   };
 
   const filtered = products.filter((p) => {
-    const norm = (v?: string) =>
-      typeof v === "string" ? v.trim().toLowerCase() : "";
-
+    const norm = (v?: string) => (typeof v === "string" ? v.trim().toLowerCase() : "");
     const kw = norm(keyword);
-
     const matchKeyword =
-      norm(p.상품명).includes(kw) ||
-      norm(p.상품번호).includes(kw) ||
-      norm(p.브랜드).includes(kw);
-
-    const matchCategory1 =
-      !selectedCategory1 || p.카테고리1 === selectedCategory1;
-    const matchCategory2 =
-      !selectedCategory2 || p.카테고리2 === selectedCategory2;
+      norm(p.상품명).includes(kw) || norm(p.상품번호).includes(kw) || norm(p.브랜드).includes(kw);
+    const matchCategory1 = !selectedCategory1 || p.카테고리1 === selectedCategory1;
+    const matchCategory2 = !selectedCategory2 || p.카테고리2 === selectedCategory2;
     const matchBrand = !selectedBrand || p.브랜드 === selectedBrand;
 
     return matchKeyword && matchCategory1 && matchCategory2 && matchBrand;
@@ -287,53 +273,42 @@ export default function ProductList() {
 
   const getSortValue = (p: ProductWithId, key: SortKey) => {
     switch (key) {
-      case "번호":
-        return Number(p.번호) || 0;
-      case "상품번호":
-        return p.상품번호 ?? "";
-      case "상품명":
-        return p.상품명 ?? "";
-      case "브랜드":
-        return p.브랜드 ?? "";
-      default:
-        return "";
+      case "번호": return Number(p.번호) || 0;
+      case "상품번호": return p.상품번호 ?? "";
+      case "상품명": return p.상품명 ?? "";
+      case "브랜드": return p.브랜드 ?? "";
+      default: return "";
     }
   };
 
   const sorted = [...filtered].sort((a, b) => {
     const aValue = getSortValue(a, sortKey);
     const bValue = getSortValue(b, sortKey);
-
     const aNum = Number(aValue);
     const bNum = Number(bValue);
-    const bothNumeric = !Number.isNaN(aNum) && !Number.isNaN(bNum);
 
-    if (bothNumeric) {
+    if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
       return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
     }
     const aStr = String(aValue);
     const bStr = String(bValue);
-    return sortOrder === "asc"
-      ? aStr.localeCompare(bStr)
-      : bStr.localeCompare(aStr);
+    return sortOrder === "asc" ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
   });
 
   const pageCount = Math.ceil(sorted.length / itemsPerPage);
   const offset = currentPage * itemsPerPage;
   const paginatedProducts = sorted.slice(offset, offset + itemsPerPage);
 
+  // 🔹 any 대신 안전한 속성 접근으로 수정
   const handleBulkPriceUpdate = async () => {
     if (selectedIds.length === 0) {
       alert("수정할 상품을 선택하세요.");
       return;
     }
-
     if (bulkValue.trim() === "") {
       alert("수정할 값을 입력하세요.");
       return;
     }
-
-    // 숫자 검증이 필요한 항목 체크
     if (
       ["원가", "단가", "판매가", "입고", "출고"].includes(bulkField) &&
       Number.isNaN(Number(bulkValue))
@@ -346,54 +321,29 @@ export default function ProductList() {
     setIsUpdating(true);
 
     try {
-      const selectedProducts = products.filter((p) =>
-        selectedIds.includes(p.id)
-      );
-
+      const selectedProducts = products.filter((p) => selectedIds.includes(p.id));
       await Promise.all(
         selectedProducts.map(async (p) => {
-          /* eslint-disable @typescript-eslint/no-explicit-any */
           if (bulkField === "브랜드") {
-            await updateDoc(doc(db, "products", p.id), {
-              브랜드: bulkValue.trim(),
-            });
+            await updateDoc(doc(db, "products", p.id), { 브랜드: bulkValue.trim() });
           } else if (bulkField === "입고" || bulkField === "출고") {
             const historyKey = bulkField === "입고" ? "입고기록" : "출고기록";
-            const prevHistory = (p as any)[historyKey] ?? [];
-            const newHistory = [
-              ...prevHistory,
-              { 수량: Number(bulkValue), 날짜: ts },
-            ];
-
+            const prevHistory = (p[historyKey] as StockRecord[] | undefined) ?? [];
             await updateDoc(doc(db, "products", p.id), {
-              [historyKey]: newHistory,
+              [historyKey]: [...prevHistory, { 수량: Number(bulkValue), 날짜: ts }],
             });
           } else {
-            // 가격 관련 (원가, 단가, 판매가)
             const historyKey =
-              bulkField === "원가"
-                ? "원가이력"
-                : bulkField === "단가"
-                ? "단가이력"
-                : "판매가이력";
-
-            const prevHistory = (p as any)[historyKey] ?? [];
-            const newHistory = [
-              ...prevHistory,
-              { 금액: Number(bulkValue), 날짜: ts },
-            ];
-
+              bulkField === "원가" ? "원가이력" : bulkField === "단가" ? "단가이력" : "판매가이력";
+            const prevHistory = (p[historyKey] as PriceHistory[] | undefined) ?? [];
             await updateDoc(doc(db, "products", p.id), {
-              [historyKey]: newHistory,
+              [historyKey]: [...prevHistory, { 금액: Number(bulkValue), 날짜: ts }],
             });
           }
-          /* eslint-enable @typescript-eslint/no-explicit-any */
         })
       );
 
-      alert(
-        `${selectedProducts.length}개 상품의 ${bulkField}를 업데이트했습니다.`
-      );
+      alert(`${selectedProducts.length}개 상품의 ${bulkField}를 업데이트했습니다.`);
       setBulkValue("");
       fetchProducts();
     } catch (err) {
@@ -409,11 +359,18 @@ export default function ProductList() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-slate-950 text-slate-100 min-h-screen">
-      <h1 className="text-2xl font-bold text-slate-100 mb-6">상품 목록 관리</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-slate-100">상품 목록 관리</h1>
+        <button
+          onClick={() => navigate("/estimate")}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition shadow flex items-center gap-1.5"
+        >
+          🛒 주문서(견적서) 확인하기
+        </button>
+      </div>
 
       {/* 검색 / 필터 / 일괄처리 바 */}
       <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4">
-        {/* 상단 검색 & 필터 영역 */}
         <div className="flex flex-wrap items-center gap-2">
           <input
             placeholder="검색 (상품명 또는 상품번호)"
@@ -422,22 +379,14 @@ export default function ProductList() {
             className={`${inputStyle} flex-1 min-w-[200px]`}
           />
 
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className={inputStyle}
-          >
+          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className={inputStyle}>
             <option value="번호">순번 정렬</option>
             <option value="상품명">상품명 정렬</option>
             <option value="상품번호">상품번호 정렬</option>
             <option value="브랜드">브랜드 정렬</option>
           </select>
 
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-            className={inputStyle}
-          >
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as SortOrder)} className={inputStyle}>
             <option value="asc">오름차순</option>
             <option value="desc">내림차순</option>
           </select>
@@ -451,14 +400,9 @@ export default function ProductList() {
             className={inputStyle}
           >
             <option value="">브랜드 전체</option>
-            {allBrand
-              .slice()
-              .sort((a, b) => a.localeCompare(b))
-              .map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+            {allBrand.slice().sort((a, b) => a.localeCompare(b)).map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
           </select>
 
           <select
@@ -470,14 +414,9 @@ export default function ProductList() {
             className={inputStyle}
           >
             <option value="">카테고리1 전체</option>
-            {allCategory1
-              .slice()
-              .sort((a, b) => a.localeCompare(b))
-              .map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+            {allCategory1.slice().sort((a, b) => a.localeCompare(b)).map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
           </select>
 
           <select
@@ -489,22 +428,16 @@ export default function ProductList() {
             className={inputStyle}
           >
             <option value="">카테고리2 전체</option>
-            {allCategory2
-              .slice()
-              .sort((a, b) => a.localeCompare(b))
-              .map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+            {allCategory2.slice().sort((a, b) => a.localeCompare(b)).map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
           </select>
 
-          {/* 🔹 페이지당 개수 선택 드롭다운 */}
           <select
             value={itemsPerPage}
             onChange={(e) => {
               setItemsPerPage(Number(e.target.value));
-              setCurrentPage(0); // 개수 변경 시 첫 페이지로 리셋
+              setCurrentPage(0);
             }}
             className={`${inputStyle} text-blue-400 font-semibold`}
             title="페이지당 표시 개수"
@@ -518,10 +451,10 @@ export default function ProductList() {
           </select>
         </div>
 
-        {/* 하단 선택 액션 및 가격/수량/브랜드 일괄 수정 영역 */}
+        {/* 액션 버튼 영역 */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer select-none">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-300 cursor-pointer select-none mr-1">
               <input
                 type="checkbox"
                 checked={
@@ -548,6 +481,14 @@ export default function ProductList() {
             </label>
 
             <button
+              onClick={handleAddToOrder}
+              disabled={selectedIds.length === 0}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3.5 py-2 rounded-lg font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed shadow"
+            >
+              📝 주문서에 담기 ({selectedIds.length})
+            </button>
+
+            <button
               onClick={handleBulkDelete}
               disabled={selectedIds.length === 0}
               className="bg-rose-950/80 hover:bg-rose-900 border border-rose-800/80 text-rose-300 text-xs px-3 py-2 rounded-lg font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -561,7 +502,7 @@ export default function ProductList() {
               value={bulkField}
               onChange={(e) => {
                 setBulkField(e.target.value as BulkField);
-                setBulkValue(""); // 필드 변경 시 기존 입력값 초기화
+                setBulkValue("");
               }}
               title="수정할 항목"
               className={inputStyle}
@@ -653,17 +594,13 @@ export default function ProductList() {
                   {imagePath ? (
                     <ProductImage path={imagePath} />
                   ) : (
-                    <span className="text-[10px] text-slate-600">
-                      이미지 없음
-                    </span>
+                    <span className="text-[10px] text-slate-600">이미지 없음</span>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-1">
                   <h3 className="text-sm font-semibold text-slate-100 truncate">
-                    {[p.상품번호, p.상품명, p.카테고리2, p.알사이즈]
-                      .filter(Boolean)
-                      .join("_")}
+                    {[p.상품번호, p.상품명, p.카테고리2, p.알사이즈].filter(Boolean).join("_")}
                   </h3>
 
                   <p className="text-xs text-slate-400">
@@ -673,9 +610,9 @@ export default function ProductList() {
                   </p>
 
                   <div className="text-xs text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
-                    <span>원가: <strong className="text-slate-200">{p.원가이력?.[p.원가이력.length - 1]?.금액 ?? 0}원</strong></span>
-                    <span>단가: <strong className="text-slate-200">{p.단가이력?.[p.단가이력.length - 1]?.금액 ?? 0}원</strong></span>
-                    <span>판매가: <strong className="text-slate-200">{p.판매가이력?.[p.판매가이력.length - 1]?.금액 ?? 0}원</strong></span>
+                    <span>원가: <strong className="text-slate-200">{getLatest(p.원가이력)?.금액 ?? 0}원</strong></span>
+                    <span>단가: <strong className="text-slate-200">{getLatest(p.단가이력)?.금액 ?? 0}원</strong></span>
+                    <span>판매가: <strong className="text-slate-200">{getLatest(p.판매가이력)?.금액 ?? 0}원</strong></span>
                   </div>
 
                   <div className="text-xs text-slate-400 flex items-center gap-2 pt-0.5">
